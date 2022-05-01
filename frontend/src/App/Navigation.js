@@ -95,12 +95,12 @@ export function NavLinks({ whoami }) {
           </Links>
         </>
       )}
-      <Links exact to="/guide">
+      {/* <Links exact to="/guide">
         Guides
       </Links>
       <Links exact to="/fits">
         Fits
-      </Links>
+      </Links> */}
       <Links exact to="/isk-h/calc">
         ISK/h calc
       </Links>

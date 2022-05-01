@@ -30,8 +30,8 @@ async fn list_notes(
     let notes_q = sqlx::query!(
         "
             SELECT author_id, author.name author_name, note, logged_at FROM character_note
-            JOIN `character` author ON author.id = author_id
-            WHERE character_id = ?
+            JOIN \"character\" author ON author.id = author_id
+            WHERE character_id = $1
         ",
         character_id
     )
@@ -72,7 +72,7 @@ async fn add_note(
 
     let now = chrono::Utc::now().timestamp();
     sqlx::query!(
-        "INSERT INTO character_note (author_id, character_id, note, logged_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO character_note (author_id, character_id, note, logged_at) VALUES ($1, $2, $3, $4)",
         account.id,
         input.character_id,
         input.note,

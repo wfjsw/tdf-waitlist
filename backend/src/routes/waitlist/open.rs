@@ -18,7 +18,7 @@ async fn set_open(
     account.require_access("waitlist-edit")?;
 
     sqlx::query!(
-        "UPDATE waitlist SET is_open=? WHERE id=?",
+        "UPDATE waitlist SET is_open= $1 WHERE id=$2",
         input.open,
         input.waitlist_id
     )

@@ -1,12 +1,13 @@
 import { Content } from "../Components/Page";
-import { NavLink } from "react-router-dom";
-import { NavButton } from "../Components/Form";
+// import { NavLink } from "react-router-dom";
+// import { NavButton } from "../Components/Form";
 
 export function Home() {
   return (
     <>
       <Content>
-        <h2>Welcome to The Ditanian Fleet</h2>
+        <h2>🐷 🚩</h2>
+        {/* <h2>Welcome to The Ditanian Fleet</h2>
         <p>
           Hello capsuleers, we would like to introduce you to the EVE Online incursion community
           called The Ditanian Fleet (TDF). We are a new-bro friendly group where all are welcome. We
@@ -66,11 +67,11 @@ export function Home() {
           supported by logistics ships in order to survive. The NPCs you face in incursions use
           electronic warfare, capacitor warfare as well as playing on speed and signature to their
           advantage and this helps to teach you many of the ingame mechanics you may face.
-        </p>
+        </p> */}
       </Content>
-      <NavButton variant={"secondary"} to={`/legal`}>
+      {/* <NavButton variant={"secondary"} to={`/legal`}>
         Legal
-      </NavButton>
+      </NavButton> */}
     </>
   );
 }

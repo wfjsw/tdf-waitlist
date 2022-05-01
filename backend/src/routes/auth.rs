@@ -18,7 +18,7 @@ async fn whoami(
     app: &rocket::State<app::Application>,
     account: AuthenticatedAccount,
 ) -> Result<Json<WhoamiResponse>, Madness> {
-    let character = sqlx::query!("SELECT id, name FROM `character` WHERE id = ?", account.id)
+    let character = sqlx::query!("SELECT id, name FROM \"character\" WHERE id = $1", account.id)
         .fetch_one(app.get_db())
         .await?;
     let mut characters = vec![types::Character {
@@ -27,7 +27,7 @@ async fn whoami(
     }];
 
     let alts = sqlx::query!(
-        "SELECT id, name FROM alt_character JOIN `character` ON alt_character.alt_id = `character`.id WHERE account_id = ?",
+        "SELECT id, name FROM alt_character JOIN \"character\" ON alt_character.alt_id = \"character\".id WHERE account_id = $1",
         account.id
     )
     .fetch_all(app.get_db())
@@ -59,7 +59,7 @@ async fn logout<'r>(
 ) -> Result<CookieSetter, Madness> {
     if let Some(account) = account {
         sqlx::query!(
-            "DELETE FROM alt_character WHERE account_id = ? OR alt_id = ?",
+            "DELETE FROM alt_character WHERE account_id = $1 OR alt_id = $2",
             account.id,
             account.id
         )
@@ -81,6 +81,10 @@ fn login_url(alt: bool, fc: bool, app: &rocket::State<app::Application>) -> Stri
     };
 
     let mut scopes = vec![
+        ESIScope::CAS_OpenID,
+        ESIScope::CAS_Accounts,
+        ESIScope::CAS_Passthrough,
+
         ESIScope::PublicData,
         ESIScope::Skills_ReadSkills_v1,
         ESIScope::Clones_ReadImplants_v1,
@@ -131,7 +135,7 @@ async fn callback(
             let account = account.unwrap();
             if account.id != character_id {
                 let is_admin = sqlx::query!(
-                    "SELECT character_id FROM admins WHERE character_id = ?",
+                    "SELECT character_id FROM admins WHERE character_id = $1",
                     character_id
                 )
                 .fetch_optional(app.get_db())
@@ -144,7 +148,7 @@ async fn callback(
                 }
 
                 sqlx::query!(
-                    "REPLACE INTO alt_character (account_id, alt_id) VALUES (?, ?)",
+                    "INSERT INTO alt_character (account_id, alt_id) VALUES ($1, $2) ON CONFLICT (account_id, alt_id) DO NOTHING",
                     account.id,
                     character_id
                 )

@@ -40,7 +40,7 @@ async fn skill_history(
     let relevance = &tdf_skills::skill_data().relevant_skills;
 
     let history = sqlx::query!(
-        "SELECT * FROM skill_history WHERE character_id = ? ORDER BY id DESC",
+        "SELECT * FROM skill_history WHERE character_id = $1 ORDER BY id DESC",
         character_id
     )
     .fetch_all(app.get_db())

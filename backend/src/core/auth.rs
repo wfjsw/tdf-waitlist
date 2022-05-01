@@ -107,7 +107,7 @@ impl<'r> FromRequest<'r> for AuthenticatedAccount {
         };
 
         let access_level = match sqlx::query!(
-            "SELECT * FROM admins WHERE character_id=?",
+            "SELECT * FROM admins WHERE character_id = $1",
             token.account_id
         )
         .fetch_optional(app.get_db())
@@ -263,7 +263,7 @@ pub async fn authorize_character(
     }
 
     let alt_character = sqlx::query!(
-        "SELECT alt_id FROM alt_character WHERE account_id = ? AND alt_id = ?",
+        "SELECT alt_id FROM alt_character WHERE account_id = $1 AND alt_id = $2",
         account.id,
         character_id
     )

@@ -52,6 +52,10 @@ pub enum ESIScope {
     UI_OpenWindow_v1,
     Skills_ReadSkills_v1,
     Clones_ReadImplants_v1,
+
+    CAS_OpenID,
+    CAS_Accounts,
+    CAS_Passthrough,
 }
 
 impl ESIScope {
@@ -64,6 +68,10 @@ impl ESIScope {
             UI_OpenWindow_v1 => "esi-ui.open_window.v1",
             Skills_ReadSkills_v1 => "esi-skills.read_skills.v1",
             Clones_ReadImplants_v1 => "esi-clones.read_implants.v1",
+
+            CAS_OpenID => "openid",
+            CAS_Accounts => "accounts",
+            CAS_Passthrough => "passthrough",
         }
     }
 }
@@ -227,7 +235,7 @@ impl ESIClient {
             .await?;
 
         if let Some(previous_token) = sqlx::query!(
-            "SELECT * FROM refresh_token WHERE character_id=?",
+            "SELECT * FROM refresh_token WHERE character_id = $1",
             result.character_id
         )
         .fetch_optional(self.db.as_ref())
@@ -258,13 +266,13 @@ impl ESIClient {
     async fn save_auth(&self, auth: &super::esi::AuthResult) -> Result<(), sqlx::Error> {
         let mut tx = self.db.begin().await?;
 
-        if sqlx::query!("SELECT id FROM `character` WHERE id=?", auth.character_id)
+        if sqlx::query!("SELECT id FROM \"character\" WHERE id = $1", auth.character_id)
             .fetch_optional(&mut tx)
             .await?
             .is_none()
         {
             sqlx::query!(
-                "INSERT INTO `character` (id, name) VALUES (?, ?)",
+                "INSERT INTO \"character\" (id, name) VALUES ($1, $2)",
                 auth.character_id,
                 auth.character_name
             )
@@ -275,7 +283,7 @@ impl ESIClient {
         let expiry_timestamp = auth.access_token_expiry.timestamp();
         let scopes = join_scopes(&auth.scopes);
         sqlx::query!(
-            "REPLACE INTO access_token (character_id, access_token, expires, scopes) VALUES (?, ?, ?, ?)",
+            "INSERT INTO access_token (character_id, access_token, expires, scopes) VALUES ($1, $2, $3, $4) ON CONFLICT (character_id) DO UPDATE SET access_token = $2, expires = $3, scopes = $4",
             auth.character_id,
             auth.access_token,
             expiry_timestamp,
@@ -285,7 +293,7 @@ impl ESIClient {
         .await?;
 
         sqlx::query!(
-            "REPLACE INTO refresh_token (character_id, refresh_token, scopes) VALUES (?, ?, ?)",
+            "INSERT INTO refresh_token (character_id, refresh_token, scopes) VALUES ($1, $2, $3) ON CONFLICT (character_id) DO UPDATE SET refresh_token = $2, scopes = $3",
             auth.character_id,
             auth.refresh_token,
             scopes,
@@ -303,7 +311,7 @@ impl ESIClient {
         character_id: i64,
     ) -> Result<(String, BTreeSet<String>), ESIError> {
         if let Some(record) = sqlx::query!(
-            "SELECT * FROM access_token WHERE character_id=?",
+            "SELECT * FROM access_token WHERE character_id = $1",
             character_id
         )
         .fetch_optional(self.db.as_ref())
@@ -315,7 +323,7 @@ impl ESIClient {
         }
 
         let refresh = match sqlx::query!(
-            "SELECT * FROM refresh_token WHERE character_id=?",
+            "SELECT * FROM refresh_token WHERE character_id = $1",
             character_id
         )
         .fetch_optional(self.db.as_ref())
@@ -343,13 +351,13 @@ impl ESIClient {
                 );
                 let mut tx = self.db.begin().await?;
                 sqlx::query!(
-                    "DELETE FROM access_token WHERE character_id=?",
+                    "DELETE FROM access_token WHERE character_id = $1",
                     character_id
                 )
                 .execute(&mut tx)
                 .await?;
                 sqlx::query!(
-                    "DELETE FROM refresh_token WHERE character_id=?",
+                    "DELETE FROM refresh_token WHERE character_id = $1",
                     character_id
                 )
                 .execute(&mut tx)

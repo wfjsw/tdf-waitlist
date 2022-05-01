@@ -16,10 +16,10 @@ async fn empty_waitlist(
 ) -> Result<&'static str, Madness> {
     account.require_access("waitlist-edit")?;
 
-    let waitlist = sqlx::query!("SELECT is_open FROM waitlist WHERE id=?", input.waitlist_id)
+    let waitlist = sqlx::query!("SELECT is_open FROM waitlist WHERE id = $1", input.waitlist_id)
         .fetch_one(app.get_db())
         .await?;
-    if waitlist.is_open > 0 {
+    if waitlist.is_open {
         return Err(Madness::BadRequest(
             "Waitlist must be closed in order to empty it".to_string(),
         ));
@@ -30,7 +30,7 @@ async fn empty_waitlist(
     sqlx::query!(
         "
             DELETE FROM waitlist_entry_fit
-            WHERE entry_id IN (SELECT id FROM waitlist_entry WHERE waitlist_id=?)
+            WHERE entry_id IN (SELECT id FROM waitlist_entry WHERE waitlist_id=$1)
         ",
         input.waitlist_id
     )
@@ -38,7 +38,7 @@ async fn empty_waitlist(
     .await?;
 
     sqlx::query!(
-        "DELETE FROM waitlist_entry WHERE waitlist_id=?",
+        "DELETE FROM waitlist_entry WHERE waitlist_id = $1",
         input.waitlist_id
     )
     .execute(&mut tx)

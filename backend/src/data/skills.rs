@@ -50,7 +50,7 @@ pub async fn load_skills(
         .await?;
 
     let last_known_skills_q = sqlx::query!(
-        "SELECT * FROM skill_current WHERE character_id = ?",
+        "SELECT * FROM skill_current WHERE character_id = $1",
         character_id
     )
     .fetch_all(db)
@@ -79,18 +79,18 @@ pub async fn load_skills(
             }
 
             sqlx::query!(
-                "INSERT INTO skill_history (character_id, skill_id, old_level, new_level, logged_at) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO skill_history (character_id, skill_id, old_level, new_level, logged_at) VALUES ($1, $2, $3, $4, $5)",
                 character_id, skill.skill_id, *on_record, skill.trained_skill_level, now
             ).execute(&mut tx).await?;
         } else if !last_known_skills.is_empty() {
             sqlx::query!(
-                "INSERT INTO skill_history (character_id, skill_id, old_level, new_level, logged_at) VALUES (?, ?, 0, ?, ?)",
+                "INSERT INTO skill_history (character_id, skill_id, old_level, new_level, logged_at) VALUES ($1, $2, 0, $3, $4)",
                 character_id, skill.skill_id, skill.trained_skill_level, now
             ).execute(&mut tx).await?;
         }
 
         sqlx::query!(
-            "REPLACE INTO skill_current (character_id, skill_id, level) VALUES (?, ?, ?)",
+            "INSERT INTO skill_current (character_id, skill_id, level) VALUES ($1, $2, $3) ON CONFLICT (character_id, skill_id) DO UPDATE SET level = $3",
             character_id,
             skill.skill_id,
             skill.trained_skill_level

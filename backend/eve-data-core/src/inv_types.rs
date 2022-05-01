@@ -5,7 +5,7 @@ use std::iter;
 use std::sync::{Arc, RwLock};
 
 pub type TypeID = i32;
-pub type SkillLevel = i8;
+pub type SkillLevel = i16;
 
 #[derive(thiserror::Error, Debug)]
 pub enum TypeError {

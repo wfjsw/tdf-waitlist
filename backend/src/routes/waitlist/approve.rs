@@ -19,7 +19,7 @@ async fn approve_fit(
     let entry = sqlx::query!(
         "
             SELECT entry_id, waitlist_id FROM waitlist_entry_fit wef
-            JOIN waitlist_entry we ON we.id=wef.entry_id WHERE wef.id=?
+            JOIN waitlist_entry we ON we.id=wef.entry_id WHERE wef.id=$1
         ",
         input.id
     )
@@ -27,7 +27,7 @@ async fn approve_fit(
     .await?;
 
     sqlx::query!(
-        "UPDATE waitlist_entry_fit SET approved=1 WHERE id=?",
+        "UPDATE waitlist_entry_fit SET approved=true WHERE id=$1",
         input.id
     )
     .execute(app.get_db())
@@ -55,7 +55,7 @@ async fn reject_fit(
     let entry = sqlx::query!(
         "
             SELECT entry_id, waitlist_id FROM waitlist_entry_fit wef
-            JOIN waitlist_entry we ON we.id=wef.entry_id WHERE wef.id=?
+            JOIN waitlist_entry we ON we.id=wef.entry_id WHERE wef.id=$1
         ",
         input.id
     )
@@ -63,7 +63,7 @@ async fn reject_fit(
     .await?;
 
     sqlx::query!(
-        "UPDATE waitlist_entry_fit SET approved=0, review_comment=? WHERE id=?",
+        "UPDATE waitlist_entry_fit SET approved=false, review_comment = $1 WHERE id = $2",
         input.review_comment,
         input.id
     )

@@ -14,11 +14,11 @@ async fn pilot_info(
 ) -> Result<Json<CharacterAndLevel>, Madness> {
     authorize_character(&app.db, &account, character_id, Some("pilot-view")).await?;
 
-    let character = sqlx::query!("SELECT id, name FROM `character` WHERE id=?", character_id)
+    let character = sqlx::query!("SELECT id, name FROM \"character\" WHERE id = $1", character_id)
         .fetch_one(app.get_db())
         .await?;
     let admin = sqlx::query!(
-        "SELECT level FROM admins WHERE character_id=?",
+        "SELECT level FROM admins WHERE character_id = $1",
         character.id
     )
     .fetch_optional(app.get_db())

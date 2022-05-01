@@ -40,7 +40,7 @@ async fn xup_history(
         SELECT dna, hull, implants, logged_at FROM fit_history
         JOIN fitting ON fit_history.fit_id=fitting.id
         JOIN implant_set ON fit_history.implant_set_id=implant_set.id
-        WHERE character_id = ?
+        WHERE character_id = $1
         ORDER BY fit_history.id DESC
     ",
         character_id

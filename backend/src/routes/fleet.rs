@@ -33,12 +33,12 @@ async fn fleet_status(
 ) -> Result<Json<FleetStatusResponse>, Madness> {
     account.require_access("fleet-view")?;
 
-    let fleets = sqlx::query!("SELECT fleet.id, boss_id, name FROM fleet JOIN `character` ON fleet.boss_id = `character`.id").fetch_all(app.get_db()).await?.into_iter()
+    let fleets = sqlx::query!("SELECT fleet.id, boss_id, name FROM fleet JOIN \"character\" ON fleet.boss_id = \"character\".id").fetch_all(app.get_db()).await?.into_iter()
     .map(|fleet| FleetStatusFleet{
-        id: fleet.id,
+        id: fleet.id.unwrap(),
         boss: Character{
-            id: fleet.boss_id,
-            name: fleet.name,
+            id: fleet.boss_id.unwrap(),
+            name: fleet.name.unwrap(),
         }
     }).collect();
 
@@ -144,7 +144,7 @@ async fn fleet_members(
     authorize_character(app.get_db(), &account, character_id, None).await?;
 
     let fleet_id = get_current_fleet_id(app, character_id).await?;
-    let fleet = match sqlx::query!("SELECT boss_id FROM fleet WHERE id = ?", fleet_id)
+    let fleet = match sqlx::query!("SELECT boss_id FROM fleet WHERE id = $1", fleet_id)
         .fetch_optional(app.get_db())
         .await?
     {
@@ -163,7 +163,7 @@ async fn fleet_members(
         .collect();
 
     let squads: HashMap<i64, String> = sqlx::query!(
-        "SELECT squad_id, category FROM fleet_squad WHERE fleet_id = ?",
+        "SELECT squad_id, category FROM fleet_squad WHERE fleet_id = $1",
         fleet_id
     )
     .fetch_all(app.get_db())
@@ -208,11 +208,11 @@ async fn register_fleet(
     authorize_character(app.get_db(), &account, input.character_id, None).await?;
 
     let mut tx = app.get_db().begin().await?;
-    sqlx::query!("DELETE FROM fleet_squad WHERE fleet_id=?", input.fleet_id)
+    sqlx::query!("DELETE FROM fleet_squad WHERE fleet_id = $1", input.fleet_id)
         .execute(&mut tx)
         .await?;
     sqlx::query!(
-        "REPLACE INTO fleet (id, boss_id) VALUES (?, ?)",
+        "INSERT INTO fleet (id, boss_id) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET boss_id = $2",
         input.fleet_id,
         input.character_id
     )
@@ -221,7 +221,7 @@ async fn register_fleet(
 
     for category in crate::data::categories::squadcategories() {
         if let Some((wing_id, squad_id)) = input.assignments.get(&category.id) {
-            sqlx::query!("INSERT INTO fleet_squad (fleet_id, wing_id, squad_id, category) VALUES (?, ?, ?, ?)",
+            sqlx::query!("INSERT INTO fleet_squad (fleet_id, wing_id, squad_id, category) VALUES ($1, $2, $3, $4)",
             input.fleet_id, wing_id, squad_id, category.id).execute(&mut tx).await?;
         } else {
             return Err(Madness::BadRequest(format!(

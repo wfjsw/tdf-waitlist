@@ -17,7 +17,7 @@ pub struct SkillTiers {
     elite: Option<SkillLevel>,
     gold: Option<SkillLevel>,
 
-    pub priority: i8,
+    pub priority: i16,
 }
 pub type SkillRequirements = HashMap<String, HashMap<TypeID, SkillTiers>>;
 pub type SkillCategories = HashMap<String, Vec<TypeID>>;

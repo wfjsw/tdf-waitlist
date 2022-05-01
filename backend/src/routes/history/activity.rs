@@ -48,7 +48,7 @@ async fn fleet_history(
 
     let mut time_by_hull = HashMap::new();
     let activity = sqlx::query!(
-        "SELECT hull, first_seen, last_seen FROM fleet_activity WHERE character_id=? ORDER BY first_seen DESC",
+        "SELECT hull, first_seen, last_seen FROM fleet_activity WHERE character_id = $1 ORDER BY first_seen DESC",
         character_id
     )
     .fetch_all(app.get_db())
@@ -113,9 +113,9 @@ async fn fleet_comp(
 
     let comp = sqlx::query!(
         "
-            SELECT fleet_id, hull, first_seen, last_seen, character_id, is_boss, `character`.name AS character_name
-            FROM fleet_activity JOIN `character` ON character_id=`character`.id
-            WHERE first_seen <= ? AND last_seen >= ?
+            SELECT fleet_id, hull, first_seen, last_seen, character_id, is_boss, \"character\".name AS character_name
+            FROM fleet_activity JOIN \"character\" ON character_id=\"character\".id
+            WHERE first_seen <= $1 AND last_seen >= $2
         ",
         time,
         time
@@ -138,7 +138,7 @@ async fn fleet_comp(
             },
             logged_at: entry.first_seen,
             time_in_fleet: entry.last_seen - entry.first_seen,
-            is_boss: entry.is_boss > 0,
+            is_boss: entry.is_boss,
         })
     }
 

@@ -38,14 +38,14 @@ async fn invite(
             FROM waitlist_entry_fit wef
             JOIN waitlist_entry we ON wef.entry_id=we.id
             JOIN fitting ON wef.fit_id = fitting.id
-            WHERE wef.id = ?
+            WHERE wef.id = $1
         ",
         input.id
     )
     .fetch_one(app.get_db())
     .await?;
     // needs to match category.yaml file
-    let select_cat = if xup.wef_is_alt > 0 {
+    let select_cat = if xup.wef_is_alt {
         "alt".to_string()
     } else {
         xup.wef_category
@@ -54,7 +54,7 @@ async fn invite(
         "
             SELECT fleet_id, squad_id, wing_id FROM fleet
             JOIN fleet_squad ON fleet.id=fleet_squad.fleet_id
-            WHERE boss_id=? AND category=?
+            WHERE boss_id = $1 AND category = $2
         ",
         input.character_id,
         select_cat,

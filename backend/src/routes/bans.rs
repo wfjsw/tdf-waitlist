@@ -5,6 +5,7 @@ use crate::{
     util::types::Character,
 };
 
+
 use rocket::serde::json::Json;
 use serde::{Deserialize, Serialize};
 
@@ -41,10 +42,10 @@ async fn add_ban(
     };
 
     sqlx::query!(
-        "REPLACE INTO ban (kind, id, expires_at, added_by) VALUES (?, ?, ?, ?)",
+        "INSERT INTO ban (kind, id, expires_at, added_by) VALUES ($1, $2, $3, $4) ON CONFLICT (kind, id) DO UPDATE SET expires_at = $3, added_by = $4",
         input.kind,
         input.id,
-        expiry,
+        expiry.map(|x| x.naive_utc()),
         account.id
     )
     .execute(app.get_db())
@@ -68,7 +69,7 @@ async fn remove_ban(
     account.require_access("bans-manage")?;
 
     sqlx::query!(
-        "DELETE FROM ban WHERE kind=? AND id=?",
+        "DELETE FROM ban WHERE kind = $1 AND id = $2",
         input.kind,
         input.id
     )
@@ -100,8 +101,8 @@ async fn list_bans(
     account.require_access("bans-view")?;
 
     // Purge expired bans
-    let now = chrono::Utc::now();
-    sqlx::query!("DELETE FROM ban WHERE expires_at < ?", now)
+    let now = chrono::Utc::now().naive_utc();
+    sqlx::query!("DELETE FROM ban WHERE expires_at < $1", now)
         .execute(app.get_db())
         .await?;
 

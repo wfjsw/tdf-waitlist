@@ -61,10 +61,10 @@ async fn list(
         .map(|cat| (&cat.id, &cat.name))
         .collect();
 
-    let waitlist = sqlx::query!("SELECT is_open FROM waitlist WHERE id = ?", waitlist_id)
+    let waitlist = sqlx::query!("SELECT is_open FROM waitlist WHERE id = $1", waitlist_id)
         .fetch_optional(app.get_db())
         .await?;
-    if waitlist.is_none() || waitlist.unwrap().is_open == 0 {
+    if waitlist.is_none() || waitlist.unwrap().is_open {
         return Ok(Json(WaitlistResponse {
             open: false,
             waitlist: None,
@@ -95,11 +95,11 @@ async fn list(
                 implant_set.implants implant_set_implants
                 FROM waitlist_entry_fit wef
             JOIN waitlist_entry we ON wef.entry_id = we.id
-            JOIN `character` char_wef ON wef.character_id = char_wef.id
-            JOIN `character` char_we ON we.account_id = char_we.id
+            JOIN \"character\" char_wef ON wef.character_id = char_wef.id
+            JOIN \"character\" char_we ON we.account_id = char_we.id
             JOIN fitting ON wef.fit_id = fitting.id
             JOIN implant_set ON wef.implant_set_id = implant_set.id
-            WHERE we.waitlist_id = ?
+            WHERE we.waitlist_id = $1
             ORDER BY we.id ASC, wef.id ASC
         ",
         waitlist_id
@@ -139,7 +139,7 @@ async fn list(
         let tags = vec![];
         let mut this_fit = WaitlistEntryFit {
             id: record.wef_id,
-            approved: record.wef_approved > 0,
+            approved: record.wef_approved,
             category: waitlist_categories_lookup
                 .get(&record.wef_category)
                 .unwrap()
@@ -158,7 +158,7 @@ async fn list(
             dna: None,
             implants: None,
             fit_analysis: None,
-            is_alt: record.wef_is_alt > 0,
+            is_alt: record.wef_is_alt,
         };
 
         let tags = record

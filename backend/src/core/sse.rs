@@ -43,7 +43,7 @@ impl SSEClient {
         let request = SseSubscribe { topics };
         let payload = rmp_serde::to_vec_named(&request).unwrap();
         let token = self.branca.clone().encode(&payload).unwrap();
-        format!("{}/events?token={}", self.url, token)
+        format!("/events?token={}", token)
     }
 
     pub async fn submit(&self, events: Vec<Event<'_>>) -> Result<(), SSEError> {

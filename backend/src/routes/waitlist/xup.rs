@@ -45,31 +45,31 @@ async fn dedup_implants(db: &mut crate::DBTX<'_>, implants: &[TypeID]) -> Result
         .join(":");
 
     if let Some(implant_set) =
-        sqlx::query!("SELECT id FROM implant_set WHERE implants = ?", implant_str)
+        sqlx::query!("SELECT id FROM implant_set WHERE implants = $1", implant_str)
             .fetch_optional(&mut *db)
             .await?
     {
         return Ok(implant_set.id);
     }
 
-    let result = sqlx::query!("INSERT INTO implant_set (implants) VALUES (?)", implant_str)
-        .execute(&mut *db)
+    let result = sqlx::query!("INSERT INTO implant_set (implants) VALUES ($1) RETURNING id", implant_str)
+        .fetch_one(&mut *db)
         .await?;
-    Ok(crate::last_insert_id!(result))
+    Ok(result.id)
 }
 
 async fn dedup_dna(db: &mut crate::DBTX<'_>, hull: TypeID, dna: &str) -> Result<i64, sqlx::Error> {
-    if let Some(fitting) = sqlx::query!("SELECT id FROM fitting WHERE dna = ?", dna)
+    if let Some(fitting) = sqlx::query!("SELECT id FROM fitting WHERE dna = $1", dna)
         .fetch_optional(&mut *db)
         .await?
     {
         return Ok(fitting.id);
     };
 
-    let result = sqlx::query!("INSERT INTO fitting (dna, hull) VALUES (?, ?)", dna, hull)
-        .execute(&mut *db)
+    let result = sqlx::query!("INSERT INTO fitting (dna, hull) VALUES ($1, $2) RETURNING id", dna, hull)
+        .fetch_one(&mut *db)
         .await?;
-    Ok(crate::last_insert_id!(result))
+    Ok(result.id)
 }
 
 async fn get_time_in_fleet(db: &crate::DB, character_id: i64) -> Result<i64, sqlx::Error> {
@@ -87,9 +87,9 @@ async fn get_time_in_fleet(db: &crate::DB, character_id: i64) -> Result<i64, sql
 }
 
 async fn am_i_banned_check(db: &crate::DB, kind: &str, id: i64) -> Result<bool, sqlx::Error> {
-    let now = chrono::Utc::now();
+    let now = chrono::Utc::now().naive_utc();
     Ok(sqlx::query!(
-        "SELECT id FROM ban WHERE kind=? AND id=? AND (expires_at IS NULL OR expires_at > ?)",
+        "SELECT id FROM ban WHERE kind = $1 AND id = $2 AND (expires_at IS NULL OR expires_at > $3)",
         kind,
         id,
         now
@@ -152,7 +152,7 @@ async fn xup_multi(
 
     // Make sure the waitlist is actually open
     if sqlx::query!(
-        "SELECT id FROM waitlist WHERE id=? AND is_open=1",
+        "SELECT id FROM waitlist WHERE id = $1 AND is_open = true",
         waitlist_id
     )
     .fetch_optional(app.get_db())
@@ -201,7 +201,7 @@ async fn xup_multi(
 
     // Create the waitlist_entry record
     let entry_id = match sqlx::query!(
-        "SELECT id FROM waitlist_entry WHERE account_id=? AND waitlist_id=?",
+        "SELECT id FROM waitlist_entry WHERE account_id = $1 AND waitlist_id = $2",
         account.id,
         waitlist_id
     )
@@ -211,20 +211,20 @@ async fn xup_multi(
         Some(e) => e.id,
         None => {
             let result = sqlx::query!(
-                "INSERT INTO waitlist_entry (waitlist_id, account_id, joined_at) VALUES (?, ?, ?)",
+                "INSERT INTO waitlist_entry (waitlist_id, account_id, joined_at) VALUES ($1, $2, $3) RETURNING id",
                 waitlist_id,
                 account.id,
                 now,
             )
-            .execute(&mut tx)
+            .fetch_one(&mut tx)
             .await?;
-            crate::last_insert_id!(result)
+            result.id
         }
     };
 
     // Spam protection: limit x'es per account
     if (sqlx::query!(
-        "SELECT COUNT(*) count FROM waitlist_entry_fit WHERE entry_id=?",
+        "SELECT COUNT(*) \"count!\" FROM waitlist_entry_fit WHERE entry_id = $1",
         entry_id
     )
     .fetch_one(&mut tx)
@@ -246,9 +246,9 @@ async fn xup_multi(
 
         // Delete existing X'up for the hull
         if let Some(existing_x) = sqlx::query!("
-        SELECT waitlist_entry_fit.id FROM waitlist_entry_fit JOIN fitting ON fit_id=fitting.id WHERE character_id = ? AND hull = ?
+        SELECT waitlist_entry_fit.id FROM waitlist_entry_fit JOIN fitting ON fit_id=fitting.id WHERE character_id = $1 AND hull = $2
         ",character_id, fit.hull).fetch_optional(&mut tx).await? {
-            sqlx::query!("DELETE FROM waitlist_entry_fit WHERE id = ?", existing_x.id).execute(&mut tx).await?;
+            sqlx::query!("DELETE FROM waitlist_entry_fit WHERE id = $1", existing_x.id).execute(&mut tx).await?;
         }
 
         let fit_checked = tdf::fitcheck::FitChecker::check(this_pilot_data, &fit)?;
@@ -264,13 +264,13 @@ async fn xup_multi(
         // Add the fit to the waitlist
         sqlx::query!("
             INSERT INTO waitlist_entry_fit (character_id, entry_id, fit_id, category, approved, tags, implant_set_id, fit_analysis, cached_time_in_fleet, is_alt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ", character_id, entry_id, fit_id, fit_checked.category, fit_checked.approved, tags, implant_set_id, fit_analysis, this_pilot_data.time_in_fleet, is_alt)
         .execute(&mut tx).await?;
 
         // Log the x'up
         sqlx::query!(
-            "INSERT INTO fit_history (character_id, fit_id, implant_set_id, logged_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO fit_history (character_id, fit_id, implant_set_id, logged_at) VALUES ($1, $2, $3, $4)",
             character_id, fit_id, implant_set_id, now,
         ).execute(&mut tx).await?;
     }

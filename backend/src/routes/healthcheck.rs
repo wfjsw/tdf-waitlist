@@ -3,7 +3,7 @@ use crate::{app::Application, data, tdf, util::madness::Madness};
 #[get("/healthz")]
 async fn health_check(app: &rocket::State<Application>) -> Result<&'static str, Madness> {
     // Check database connection
-    let _oneoneone = sqlx::query!("SELECT 1 'one'")
+    let _oneoneone = sqlx::query!("SELECT 1 \"one\"")
         .fetch_one(app.get_db())
         .await?;
 
