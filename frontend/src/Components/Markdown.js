@@ -5,7 +5,7 @@ import { Table, TableHead, TableBody, Cell, CellHead, Row } from "./Table";
 
 function Link({ href, children, ...props }) {
   return href.startsWith("/") ? (
-    <NavLink exact to={href}>
+    <NavLink end to={href}>
       {children}
     </NavLink>
   ) : (

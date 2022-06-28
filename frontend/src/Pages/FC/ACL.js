@@ -1,23 +1,21 @@
 import React from "react";
-import { Route } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { apiCall, toaster, useApi } from "../../api";
 import { Box } from "../../Components/Box";
 import { Button, InputGroup, Buttons, Input, CenteredButtons } from "../../Components/Form";
 import { PageTitle, Title } from "../../Components/Page";
 import { CellHead, Table, TableHead, Row, TableBody, Cell } from "../../Components/Table";
 import { ToastContext, AuthContext } from "../../contexts";
-import { useLocation, useHistory } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Modal } from "../../Components/Modal";
 
 export const fcroles = ["trainee", "trainee-advanced", "fc", "fc-trainer", "council", "admin"];
 
 export function ACLRoutes() {
   return (
-    <>
-      <Route exact path="/fc/acl">
-        <ACLOverview />
-      </Route>
-    </>
+    <Routes>
+      <Route path="/" element={<ACLOverview />} />
+    </Routes>
   );
 }
 
@@ -95,11 +93,11 @@ function ACLOverview() {
   const [find, setFind] = React.useState("");
 
   const queryParams = new URLSearchParams(useLocation().search);
-  const history = useHistory();
+  const navigate = useNavigate();
   var category = queryParams.get("Category") || "FC";
   const setCategory = (newCategory) => {
     queryParams.set("Category", newCategory);
-    history.push({
+    navigate({
       search: queryParams.toString(),
     });
   };

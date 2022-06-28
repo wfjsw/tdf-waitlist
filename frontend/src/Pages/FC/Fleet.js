@@ -7,7 +7,7 @@ import { apiCall, errorToaster, toaster, useApi } from "../../api";
 import { Cell, CellHead, Row, Table, TableBody, TableHead } from "../../Components/Table";
 import { BorderedBox } from "../../Components/NoteBox";
 import _ from "lodash";
-import { useHistory, useLocation } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRotate } from "@fortawesome/pro-solid-svg-icons";
 import { useTranslation } from "react-i18next";
@@ -268,7 +268,7 @@ export function FleetRegister() {
   const [fleetInfo, setFleetInfo] = React.useState(null);
   const [categories, setCategories] = React.useState(null);
   const [categoryMatches, setCategoryMatches] = React.useState({});
-  const history = useHistory();
+  const navigate = useNavigate();
 
   const characterId = authContext.current.id;
   React.useEffect(() => {
@@ -314,7 +314,7 @@ export function FleetRegister() {
         variant="primary"
         onClick={(evt) => 
           toaster(toastContext, registerFleet({ authContext, fleetInfo, categoryMatches }))
-          .then(() => history.push("/fc/fleet")) 
+          .then(() => navigate("/fc/fleet")) 
         }
       >
         Continue

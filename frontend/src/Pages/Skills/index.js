@@ -1,12 +1,10 @@
-import { Route } from "react-router";
+import { Route, Routes } from "react-router";
 import { Skills } from "./Skills";
 
 export function SkillRoutes() {
   return (
-    <>
-      <Route exact path="/skills">
-        <Skills />
-      </Route>
-    </>
+    <Routes>
+      <Route path="/" element={<Skills />} />
+    </Routes>
   );
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { Route } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { useQuery } from "../Util/query";
 import { useTranslation } from "react-i18next";
 
@@ -102,22 +102,12 @@ export async function processAuth(callback) {
 
 export function AuthRoutes({ value }) {
   return (
-    <>
-      <Route exact path="/auth/start">
-        <AuthStart />
-      </Route>
-      <Route exact path="/auth/start/fc">
-        <AuthStart fc={true} alt={true} />
-      </Route>
-      <Route exact path="/auth/start/alt">
-        <AuthStart alt={true} />
-      </Route>
-      <Route exact path="/auth/cb">
-        <AuthCallback />
-      </Route>
-      <Route exact path="/auth/logout">
-        <AuthLogout />
-      </Route>
-    </>
+    <Routes>
+      <Route path="start" element={<AuthStart />} />
+      {/* <Route path="/auth/start/fc" element={<AuthStart fc={true} alt={true} />} /> */}
+      {/* <Route path="/auth/start/alt" element={<AuthStart alt={true} />} /> */}
+      <Route path="cb" element={<AuthCallback />} />
+      <Route path="logout" element={<AuthLogout />} />
+    </Routes>
   );
 }

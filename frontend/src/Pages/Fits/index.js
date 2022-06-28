@@ -6,15 +6,15 @@ import { Fitout, ImplantOut } from "./FittingSortDisplay";
 
 import { PageTitle } from "../../Components/Page";
 
-import { useLocation, useHistory } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export function Fits() {
   const queryParams = new URLSearchParams(useLocation().search);
-  const history = useHistory();
+  const navigate = useNavigate();
   var tier = queryParams.get("Tier") || "Starter";
   const setTier = (newTier) => {
     queryParams.set("Tier", newTier);
-    history.push({
+    navigate({
       search: queryParams.toString(),
     });
   };

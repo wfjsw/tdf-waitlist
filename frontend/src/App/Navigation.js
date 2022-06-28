@@ -87,39 +87,39 @@ export function NavLinks({ whoami }) {
     <>
       {whoami && (
         <>
-          <Links exact to="/waitlist">
-            {t('waitlist')}
+          <Links end to="/waitlist">
+            {t("waitlist")}
           </Links>
-          <Links exact to="/skills">
-            {t('skills')}
+          <Links end to="/skills">
+            {t("skills")}
           </Links>
-          <Links exact to="/pilot">
-            {t('pilot')} 
+          <Links end to="/pilot">
+            {t("pilot")}
           </Links>
         </>
       )}
-      {/* <Links exact to="/guide">
+      {/* <Links end to="/guide">
         Guides
       </Links>
-      <Links exact to="/fits">
+      <Links end to="/fits">
         Fits
       </Links> */}
-      {/* <Links exact to="/isk-h/calc">
+      {/* <Links end to="/isk-h/calc">
         {t('isk_h')}
       </Links> */}
       {whoami && whoami.access["fleet-view"] && (
-        <Links exact to="/fc/fleet">
-          {t('fleet')}
+        <Links end to="/fc/fleet">
+          {t("fleet")}
         </Links>
       )}
       {whoami && whoami.access["fleet-view"] && (
-        <Links exact to="/fc">
-          {t('fc')}
+        <Links end to="/fc">
+          {t("fc")}
         </Links>
       )}
       {whoami && whoami.access["search"] && (
-        <Links exact to="/fc/search">
-          {t('search')}
+        <Links end to="/fc/search">
+          {t("search")}
         </Links>
       )}
     </>

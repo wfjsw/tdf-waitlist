@@ -1,5 +1,5 @@
 import React from "react";
-import { useLocation, useHistory, Route } from "react-router-dom";
+import { useLocation, useNavigate, Route, Routes } from "react-router-dom";
 import { Table, Row, Cell, TableHead, TableBody, CellHead } from "../../Components/Table";
 import { Button, Input, NavButton, Select } from "../../Components/Form";
 
@@ -15,14 +15,10 @@ async function removeBan({ kind, id }) {
 
 export function BanRoutes() {
   return (
-    <>
-      <Route exact path="/fc/bans/add">
-        <AddBan />
-      </Route>
-      <Route exact path="/fc/bans">
-        <BanList />
-      </Route>
-    </>
+    <Routes>
+      <Route path="add" element={<AddBan />} />
+      <Route path="/" element={<BanList />} />
+    </Routes>
   );
 }
 
@@ -37,7 +33,7 @@ function BanList() {
   return (
     <>
       {authContext.access["bans-manage"] && (
-        <NavButton exact to="/fc/bans/add">
+        <NavButton end to="/fc/bans/add">
           Add ban
         </NavButton>
       )}
@@ -100,7 +96,7 @@ function AddBan() {
   const [banID, setBanID] = React.useState(queryParams.get("id") || "");
   const [banReason, setBanReason] = React.useState(queryParams.get("reason") || "");
   const [duration, setDuration] = React.useState("");
-  const history = useHistory();
+  const navigate = useNavigate();
 
   const doBan = function () {
     toaster(
@@ -113,7 +109,7 @@ function AddBan() {
           reason: banReason,
         },
       }).then((success) => {
-        history.push({ pathname: "/fc/bans" });
+        navigate({ pathname: "/fc/bans" });
         return success;
       })
     );

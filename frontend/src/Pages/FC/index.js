@@ -1,5 +1,5 @@
 import React from "react";
-import { Route } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { AuthContext } from "../../contexts";
 import { BanRoutes } from "./Bans";
 import { ACLRoutes } from "./ACL";
@@ -13,41 +13,23 @@ import { FCMenu, GuideFC } from "./FCMenu";
 export function FCRoutes() {
   const authContext = React.useContext(AuthContext);
   return (
-    <>
-      <BanRoutes />
-      <ACLRoutes />
+    <Routes>
+      <Route path="bans/*" element={<BanRoutes />} />
+      <Route path="acl/*" element={<ACLRoutes />} />
 
-      <Route exact path="/fc">
-        <FCMenu />
-      </Route>
-      <Route exact path="/fc/stats">
-        <Statistics />
-      </Route>
-      <Route exact path="/fc/fleet">
-        <Fleet />
-      </Route>
-      <Route exact path="/fc/fleet/register">
-        <FleetRegister />
-      </Route>
-      <Route exact path="/fc/search">
-        <Search />
-      </Route>
-      <Route exact path="/fc/fleet-comp-history">
-        <FleetCompHistory />
-      </Route>
-      <Route exact path="/fc/notes/add">
-        <NoteAdd />
-      </Route>
+      <Route path="/" element={<FCMenu />} />
+      <Route path="stats" element={<Statistics />} />
+      <Route path="fleet" element={<Fleet />} />
+      <Route path="fleet/register" element={<FleetRegister />} />
+      <Route path="search" element={<Search />} />
+      <Route path="fleet-comp-history" element={<FleetCompHistory />} />
+      <Route path="notes/add" element={<NoteAdd />} />
       {authContext.access["stats-view"] && (
-        <Route exact path="/fc/documentation">
-          <GuideFC />
-        </Route>
+        <Route path="documentation" element={<GuideFC />} />
       )}
       {authContext.access["fleet-view"] && (
-        <Route exact path="/fc/trainee">
-          <GuideFC />
-        </Route>
+        <Route path="trainee" element={<GuideFC />} />
       )}
-    </>
+    </Routes>
   );
 }

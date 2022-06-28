@@ -1,5 +1,5 @@
-import React, {Suspense, Spinner} from "react";
-import { BrowserRouter as Router, Switch } from "react-router-dom";
+import React, { Suspense } from "react";
+import { BrowserRouter as Router } from "react-router-dom";
 import { processAuth } from "../Pages/Auth";
 import { ToastDisplay } from "../Components/Toast";
 import { AuthContext, ToastContext, EventContext, WaitlistContext } from "../contexts";
@@ -52,6 +52,10 @@ const GlobalStyle = createGlobalStyle`
     font-weight: bold;
   }
 `;
+
+function Spinner() {
+  return (<div>Loading...</div>);
+}
 
 export default class App extends React.Component {
   constructor(props) {
@@ -141,38 +145,36 @@ export default class App extends React.Component {
     return (
         <ThemeProvider theme={theme[this.state.theme]}>
           <GlobalStyle />
-          <Suspense fallback={<Spinner />}>
-            <ToastContext.Provider value={this.addToast}>
-            <EventContext.Provider value={this.state.events}>
-              <AuthContext.Provider value={this.state.auth}>
-                <WaitlistContext.Provider value={this.state.waitlists}>
-                  <Router>
-                    <Container>
-                      <Menu
-                        onChangeCharacter={(char) => this.changeCharacter(char)}
-                        onChangeWaitlist={(waitlist) => this.changeWaitlist(waitlist)}
-                        theme={this.state.theme}
-                        setTheme={(newTheme) => {
-                          this.setState({ theme: newTheme });
-                          if (window.localStorage) {
-                            window.localStorage.setItem("theme", newTheme);
-                          }
-                        }}
-                      />
-                      <Switch>
-                        <Routes />
-                      </Switch>
-                      <ToastDisplay
-                        toasts={this.state.toasts}
-                        setToasts={(toasts) => this.setState({ toasts })}
-                      />
-                    </Container>
-                  </Router>
-                </WaitlistContext.Provider>
-              </AuthContext.Provider>
-            </EventContext.Provider>
-            </ToastContext.Provider>
-          </Suspense>
+          <ToastContext.Provider value={this.addToast}>
+          <EventContext.Provider value={this.state.events}>
+            <AuthContext.Provider value={this.state.auth}>
+              <WaitlistContext.Provider value={this.state.waitlists}>
+                <Router>
+                  <Container>
+                    <Menu
+                      onChangeCharacter={(char) => this.changeCharacter(char)}
+                      onChangeWaitlist={(waitlist) => this.changeWaitlist(waitlist)}
+                      theme={this.state.theme}
+                      setTheme={(newTheme) => {
+                        this.setState({ theme: newTheme });
+                        if (window.localStorage) {
+                          window.localStorage.setItem("theme", newTheme);
+                        }
+                      }}
+                    />
+                    <Suspense fallback={<Spinner />}>
+                      <Routes />
+                    </Suspense>
+                    <ToastDisplay
+                      toasts={this.state.toasts}
+                      setToasts={(toasts) => this.setState({ toasts })}
+                    />
+                  </Container>
+                </Router>
+              </WaitlistContext.Provider>
+            </AuthContext.Provider>
+          </EventContext.Provider>
+          </ToastContext.Provider>
         </ThemeProvider>
     );
   }

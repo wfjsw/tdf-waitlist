@@ -127,7 +127,7 @@ export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme }) {
                         </option>
                       ))}
                     </Select>
-                    <NavButton exact to="/auth/start">
+                    <NavButton end to="/auth/start">
                       <FontAwesomeIcon icon={faRotate} />
                     </NavButton>
                   </InputGroup>
@@ -143,11 +143,11 @@ export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme }) {
                   <FontAwesomeIcon icon={faBug} />
                 </AButton>
                 {whoami ? (
-                  <NavButton exact to="/auth/logout" variant="secondary">
+                  <NavButton end to="/auth/logout" variant="secondary">
                     {t("logout")}
                   </NavButton>
                 ) : (
-                  <NavButton exact to="/auth/start" variant="primary">
+                  <NavButton end to="/auth/start" variant="primary">
                     {t('login')}
                   </NavButton>
                 )}

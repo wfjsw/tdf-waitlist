@@ -1,7 +1,7 @@
 import './i18n';
 import App from "./App/";
 import React from "react";
-import ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import { BrowserTracing } from "@sentry/tracing";
 
@@ -13,9 +13,11 @@ Sentry.init({
     // for finer control
     tracesSampleRate: 1.0,
 });
-ReactDOM.render(
+
+const container = document.getElementById("root");
+const root = createRoot(container);
+root.render(
     <React.StrictMode>
         <App />
-    </React.StrictMode>,
-    document.getElementById("root")
+    </React.StrictMode>
 );

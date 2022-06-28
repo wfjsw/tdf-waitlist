@@ -1,5 +1,5 @@
 import React from "react";
-import { useHistory, useLocation } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { apiCall, errorToaster, useApi } from "../../api";
 import { Button, InputGroup, Textarea } from "../../Components/Form";
 import { PageTitle } from "../../Components/Page";
@@ -21,7 +21,7 @@ export function NoteAdd() {
 
   const queryParams = new URLSearchParams(useLocation().search);
   var characterId = parseInt(queryParams.get("character_id"));
-  const history = useHistory();
+  const navigate = useNavigate();
 
   const [pilot] = useApi(characterId ? `/api/pilot/info?character_id=${characterId}` : null);
 
@@ -46,7 +46,7 @@ export function NoteAdd() {
             errorToaster(
               toastContext,
               saveNote(characterId, note)
-                .then((success) => history.push(`/pilot?character_id=${characterId}`))
+                .then((success) => navigate(`/pilot?character_id=${characterId}`))
                 .finally((done) => setIsSubmitting(false))
             );
           }}

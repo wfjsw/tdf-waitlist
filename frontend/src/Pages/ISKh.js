@@ -263,7 +263,7 @@ export function ISKh() {
   return (
     <>
       <div>
-        <NavButton exact to="/isk-h/calc">
+        <NavButton end to="/isk-h/calc">
           Calculator
         </NavButton>
       </div>

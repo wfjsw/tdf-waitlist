@@ -88,7 +88,7 @@ export function Guide() {
 function GuideCard({ icon, slug, name, children }) {
   return (
     <CardMargin>
-      <NavLink style={{ textDecoration: "inherit", color: "inherit" }} exact to={`${slug}`}>
+      <NavLink style={{ textDecoration: "inherit", color: "inherit" }} end to={`${slug}`}>
         <Card
           title={
             <>

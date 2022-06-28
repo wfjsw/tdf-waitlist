@@ -1,9 +1,9 @@
 import React from "react";
-import { useHistory, useLocation } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 
 export function useQuery() {
   const location = useLocation();
-  const history = useHistory();
+  const navigate = useNavigate();
   const query = location.search;
 
   const parsed = React.useMemo(() => {
@@ -23,17 +23,11 @@ export function useQuery() {
       } else {
         queryParams.set(key, value);
       }
-      if (replace) {
-        history.replace({
-          search: queryParams.toString(),
-        });
-      } else {
-        history.push({
-          search: queryParams.toString(),
-        });
-      }
+      navigate({
+        search: queryParams.toString(),
+      }, {replace: !!replace});
     },
-    [query, history]
+    [query, navigate]
   );
 
   return [parsed, setParam];

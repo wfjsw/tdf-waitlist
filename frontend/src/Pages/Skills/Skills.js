@@ -1,6 +1,6 @@
 import React from "react";
 import { AuthContext } from "../../contexts";
-import { useLocation, useHistory } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { PageTitle } from "../../Components/Page";
 import { useApi } from "../../api";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,7 @@ export function Skills() {
   const authContext = React.useContext(AuthContext);
   const { t } = useTranslation("skills");
   const queryParams = new URLSearchParams(useLocation().search);
-  const history = useHistory();
+  const navigate = useNavigate();
 
   var characterId = queryParams.get("character_id") || authContext.current.id;
   var ship = queryParams.get("ship") || "Vindicator";
@@ -19,7 +19,7 @@ export function Skills() {
 
   const setShip = (newShip) => {
     queryParams.set("ship", newShip);
-    history.push({
+    navigate({
       search: queryParams.toString(),
     });
   };

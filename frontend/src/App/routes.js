@@ -1,69 +1,49 @@
-import React from "react";
+import React, {lazy} from "react";
 
-import { Route } from "react-router-dom";
+import { Route, Routes as Switch } from "react-router-dom";
 import { AuthContext } from "../contexts";
 
 import { SkillRoutes } from "../Pages/Skills";
 // import { Plans } from "../Pages/Skills/Plans";
+// import { Skills } from "../Pages/Skills/Skills";
 import { Waitlist } from "../Pages/Waitlist";
 import { Xup } from "../Pages/Xup";
 import { Pilot } from "../Pages/Pilot";
 import { Home } from "../Pages/Home";
 import { Legal } from "../Pages/Legal";
 // import { Fits } from "../Pages/Fits";
-import { Guide, /*GuideIndex*/ } from "../Pages/Guide";
+// import { Guide, /*GuideIndex*/ } from "../Pages/Guide";
 
-import { FCRoutes } from "../Pages/FC";
 import { AuthRoutes } from "../Pages/Auth";
 // import { ISKh, ISKhCalc } from "../Pages/ISKh";
+
+const Guide = lazy(() => import("../Pages/Guide/lazy.guide"));
+const FCRoutes = lazy(() => import("../Pages/FC/lazy"));
 
 export function Routes() {
   const authContext = React.useContext(AuthContext);
   return (
-    <>
-      <Route exact path="/">
-        <Home />
-      </Route>
-      <Route exact path="/legal">
-        <Legal />
-      </Route>
-      {/* <Route exact path="/guide">
-        <GuideIndex />
-      </Route> */}
-      <Route exact path="/guide/:guideName">
-        <Guide />
-      </Route>
-      {/* <Route exact path="/isk-h/calc">
-        <ISKhCalc />
-      </Route>
-      <Route exact path="/isk-h">
-        <ISKh />
-      </Route> */}
-      {/* <Route exact path="/fits">
-        <Fits />
-      </Route>
-      <Route exact path="/skills/plans">
-        <Plans />
-      </Route> */}
+    <Switch>
+      <Route path="/" element={<Home />} />
+      <Route path="/legal" element={<Legal />} />
+
+      {/* <Route path="/guide" element={<GuideIndex />} /> */}
+      <Route path="/guide/:guideName" element={<Guide />} />
+      {/* <Route path="/isk-h/calc" element={<ISKhCalc />} />
+      <Route path="/isk-h" element={<ISKh />} />
+      <Route path="/fits" element={<Fits />} />
+      <Route path="/skills/plans" element={<Plans />} />*/}
       {authContext && (
         <>
-          <Route exact path="/xup">
-            <Xup />
-          </Route>
-          <Route exact path="/pilot">
-            <Pilot />
-          </Route>
-          <Route exact path="/waitlist">
-            <Waitlist />
-          </Route>
-
-          <FCRoutes />
-
-          <SkillRoutes />
+          <Route path="/xup" element={<Xup />} />
+          <Route path="/pilot" element={<Pilot />} />
+          <Route path="/waitlist" element={<Waitlist />} />
+          <Route path="/fc/*" element={<FCRoutes />} />
+          <Route path="/skills/*" element={<SkillRoutes />} />
         </>
       )}
 
-      <AuthRoutes />
-    </>
+      <Route path="/auth/*" element={<AuthRoutes />} />
+    </Switch>
   );
 }
