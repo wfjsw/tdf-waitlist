@@ -186,7 +186,7 @@ async fn fleet_members(
 
     let account_names = crate::data::character::lookup(app.get_db(), &account_ids).await?;
 
-    let category_lookup: HashMap<_, _> = crate::data::categories::squadcategories()
+    let category_lookup: HashMap<_, _> = crate::data::categories::categories()
         .iter()
         .map(|c| (&c.id as &str, &c.name))
         .collect();
@@ -261,7 +261,7 @@ async fn register_fleet(
     .execute(&mut tx)
     .await?;
 
-    for category in crate::data::categories::squadcategories() {
+    for category in crate::data::categories::categories() {
         if let Some((wing_id, squad_id)) = input.assignments.get(&category.id) {
             sqlx::query!("INSERT INTO fleet_squad (fleet_id, wing_id, squad_id, category) VALUES ($1, $2, $3, $4)",
             input.fleet_id, wing_id, squad_id, category.id).execute(&mut tx).await?;

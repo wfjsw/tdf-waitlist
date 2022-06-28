@@ -106,8 +106,7 @@ categories:
     - Information Command Specialist
 
 requirements:
-  _generic: &generic
-    # Generic skills: everyone needs these
+  _generic: &generic # Generic skills: everyone needs these
     EM Armor Compensation:
       min: 4
       elite: 5
@@ -222,8 +221,7 @@ requirements:
     Neurotoxin Recovery:
       elite: 4
 
-  _gunnery: &gunnery
-    # Gunnery skills: need these if you have guns
+  _gunnery: &gunnery # Gunnery skills: need these if you have guns
     Controlled Bursts:
       min: 3
       elite: 4
@@ -247,8 +245,7 @@ requirements:
       min: 4
       elite: 5
 
-  _logistics: &logistics
-    # Logistics skills: all logi pilots need these
+  _logistics: &logistics # Logistics skills: all logi pilots need these
     EM Armor Compensation:
       min: 4
       elite: 5
@@ -350,9 +347,18 @@ requirements:
     Energy Grid Upgrades:
       min: 2
 
+  _rigging:
+    &rigging # Rigging skills: any ship with rigs that can be improved with rigging skills
+    Armor Rigging:
+      min: 3
+      Elite: 4
+    Astronautics Rigging:
+      min: 3
+      Elite: 4
+
   # Start of per-ship skills
   Nightmare:
-    <<: [ *generic, *gunnery, *sideeffects ]
+    <<: [*generic, *gunnery, *sideeffects, *rigging]
     Amarr Battleship:
       min: 3
       elite: 4
@@ -393,7 +399,7 @@ requirements:
       min: 2
 
   Paladin:
-    <<: [ *generic, *gunnery, *sideeffects ]
+    <<: [*generic, *gunnery, *sideeffects, *rigging]
     Large Energy Turret:
       min: 5
     Large Pulse Laser Specialization:
@@ -441,7 +447,7 @@ requirements:
       min: 5
 
   Kronos:
-    <<: [ *generic, *gunnery, *sideeffects ]
+    <<: [*generic, *gunnery, *sideeffects, *rigging]
     Large Hybrid Turret:
       min: 5
     Large Blaster Specialization:
@@ -483,7 +489,7 @@ requirements:
       min: 5
 
   Vindicator:
-    <<: [ *generic, *gunnery, *sideeffects ]
+    <<: [*generic, *gunnery, *sideeffects, *rigging]
     Large Hybrid Turret:
       min: 5
     Large Blaster Specialization:
@@ -509,7 +515,7 @@ requirements:
       elite: 4
 
   Megathron:
-    <<: [ *generic, *gunnery, *sideeffects ]
+    <<: [*generic, *gunnery, *sideeffects, *rigging]
     Gallente Battleship:
       min: 3
     Large Hybrid Turret:
@@ -518,7 +524,7 @@ requirements:
       min: 4
 
   Guardian:
-    <<: [ *logistics ]
+    <<: [*logistics]
     Afterburner:
       min: 4
     Capacitor Emission Systems:
@@ -547,7 +553,7 @@ requirements:
       min: 5
 
   Oneiros:
-    <<: [ *logistics ]
+    <<: [*logistics]
     Afterburner:
       min: 4
     Evasive Maneuvering:
@@ -578,7 +584,7 @@ requirements:
       min: 5
 
   Nestor:
-    <<: [ *logistics ]
+    <<: [*logistics, *rigging]
     EM Armor Compensation:
       min: 5
     Explosive Armor Compensation:
