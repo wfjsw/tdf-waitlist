@@ -80,7 +80,8 @@ CREATE TABLE public.ban (
     kind character varying(11) NOT NULL,
     id bigint NOT NULL,
     expires_at timestamp without time zone,
-    added_by bigint
+    added_by bigint,
+    reason text
 );
 
 
