@@ -278,9 +278,9 @@ theme["Chocola"] = _.merge({}, theme.Dark, {
     accent2: "#5b4453",
     accent3: "#d15886",
   },
-  logo: {
-    filter: "invert(1) drop-shadow(1px 2px 0.5px #80173E)",
-  },
+  // logo: {
+  //   filter: "invert(1) drop-shadow(1px 2px 0.5px #80173E)",
+  // },
   sticker:
     "https://raw.githubusercontent.com/doki-theme/doki-theme-github/master/assets/stickers/nekoPara/chocola/dark/chocola_dark.png",
 });
