@@ -45,7 +45,7 @@ pub async fn load_skills(
         .get(
             &format!("/v4/characters/{}/skills/", character_id),
             character_id,
-            ESIScope::Skills_ReadSkills_v1,
+            Some(ESIScope::Skills_ReadSkills_v1),
         )
         .await?;
 

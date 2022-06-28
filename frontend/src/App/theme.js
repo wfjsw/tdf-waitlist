@@ -77,9 +77,9 @@ const theme = {
     },
   }),
   dark: _.merge({}, globals, {
-    logo: {
-      filter: "invert(1)",
-    },
+    // logo: {
+    //   filter: "invert(1)",
+    // },
     colors: {
       background: "#1f1f1f",
       text: "#cccccc",
@@ -179,10 +179,10 @@ theme["Midnight Blue"] = _.merge({}, theme.dark, {
 });
 
 theme["Elite GOLD"] = _.merge({}, theme.light, {
-  logo: {
-    filter:
-      "invert(1) sepia(1) saturate(10000%) hue-rotate(-15deg) drop-shadow(1px 1px 0.5px #a67c00) contrast(90%)",
-  },
+  // logo: {
+  //   filter:
+  //     "invert(1) sepia(1) saturate(10000%) hue-rotate(-15deg) drop-shadow(1px 1px 0.5px #a67c00) contrast(90%)",
+  // },
 });
 
 theme["Specialist"] = _.merge({}, theme.light, {
@@ -242,9 +242,9 @@ theme["Specialist"] = _.merge({}, theme.light, {
       blue: "#2e91d1",
     },
   },
-  logo: {
-    filter: "hue-rotate(-55deg) drop-shadow(1px 2px 0.5px #ff8fc9) contrast(90%)",
-  },
+  // logo: {
+  //   filter: "hue-rotate(-55deg) drop-shadow(1px 2px 0.5px #ff8fc9) contrast(90%)",
+  // },
 });
 
 export default theme;

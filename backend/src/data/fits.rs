@@ -19,7 +19,7 @@ fn load_fits() -> FitData {
     let mut fits = BTreeMap::new();
 
     let fit_data = std::fs::read_to_string("./data/fits.dat").expect("Could not load fits.dat");
-    let fit_regex = Regex::new(r#"<a href="fitting:([0-9:;_]+)">([^<]+)</a>"#).unwrap();
+    let fit_regex = Regex::new(r#"<(?:a href|url)="?fitting:([0-9:;_]+)"?>([^<]+)</(?:a|url)>"#).unwrap();
 
     for fit_match in fit_regex.captures_iter(&fit_data) {
         let dna = fit_match.get(1).unwrap().as_str();

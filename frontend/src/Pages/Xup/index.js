@@ -1,12 +1,12 @@
 import React from "react";
-import { ToastContext, AuthContext } from "../../contexts";
+import { ToastContext, AuthContext, WaitlistContext } from "../../contexts";
 import { addToast } from "../../Components/Toast";
 import { apiCall, errorToaster, useApi } from "../../api";
 import { Button, Buttons, InputGroup, NavButton, Textarea } from "../../Components/Form";
-import { useLocation } from "react-router-dom";
+// import { useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Content, PageTitle } from "../../Components/Page";
 import { FitDisplay, ImplantDisplay } from "../../Components/FitDisplay";
-import _ from "lodash";
 import { Box } from "../../Components/Box";
 import { Modal } from "../../Components/Modal";
 
@@ -74,7 +74,8 @@ async function xUp({ character, eft, toastContext, waitlist_id, alt }) {
 export function Xup() {
   const toastContext = React.useContext(ToastContext);
   const authContext = React.useContext(AuthContext);
-  const queryParams = new URLSearchParams(useLocation().search);
+  const waitlistContext = React.useContext(WaitlistContext);
+  const { t } = useTranslation('x_up');
   const [eft, setEft] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [reviewOpen, setReviewOpen] = React.useState(false);
@@ -85,9 +86,15 @@ export function Xup() {
     setAlt(!alt);
   };
 
-  const waitlist_id = queryParams.get("wl");
+  const waitlist_id = waitlistContext && waitlistContext.active;
   if (!waitlist_id) {
     return <em>Missing waitlist information</em>;
+  }
+
+  const waitlist = waitlistContext.available.find((wl) => wl.id === waitlist_id);
+  
+  if (!waitlist.open) {
+    return <em>Waitlist is closed</em>;
   }
 
   return (
@@ -102,7 +109,7 @@ export function Xup() {
 
       <div style={{ display: "flex" }}>
         <Content style={{ flex: 1 }}>
-          <h2>X-up with fit(s)</h2>
+          <h2>{t('x_up_with_fit')}</h2>
           <Textarea
             placeholder={exampleFit}
             rows={15}
@@ -114,7 +121,7 @@ export function Xup() {
           <div>
             <label>
               <input type="checkbox" checked={alt} onChange={handleChange} />
-              This is an ALT (I already have a character in fleet)
+              {t('alt_checkbox')}
             </label>
           </div>
 
@@ -137,7 +144,7 @@ export function Xup() {
               }}
               disabled={eft.trim().length < 50 || !eft.startsWith("[") || isSubmitting}
             >
-              X-up
+              {t('x_up')}
             </Button>
           </InputGroup>
 
@@ -162,35 +169,42 @@ export function Xup() {
 
 function XupCheck({ waitlistId, setOpen }) {
   const authContext = React.useContext(AuthContext);
+  const { t } = useTranslation('x_up');
   const [xupData] = useApi(`/api/waitlist?waitlist_id=${waitlistId}`);
 
   if (!xupData) {
     return <em>Loading</em>;
   }
 
-  const myEntry = _.find(
-    xupData.waitlist,
-    (entry) => entry.character && entry.character.id === authContext.account_id
-  );
+  // const myEntry = _.find(
+  //   xupData.waitlist,
+  //   (entry) => entry.character && entry.character.id === authContext.current.id
+  // );
+
+  const fit = xupData.waitlist
+    .find(
+      (ent) =>
+        ent &&
+        ent.fits &&
+        ent.fits.some((fit) => fit.character && fit.character.id === authContext.current.id)
+    )
+    .fits.find((fit) => fit.character && fit.character.id === authContext.current.id);
 
   return (
     <>
-      <PageTitle>Fit review</PageTitle>
+      <PageTitle>{t("fit_review")}</PageTitle>
       <em>
-        You are now on the waitlist! These are the fits you x-ed up with, please check to make sure
-        you have everything and adjust your fit if needed.
+        {t("fit_review_desc")}
       </em>
-      {myEntry.fits.map((fit) => (
-        <Box key={fit.id}>
-          <FitDisplay fit={fit} />
-        </Box>
-      ))}
+      <Box key={fit.id}>
+        <FitDisplay fit={fit} />
+      </Box>
       <Buttons>
         <NavButton variant="primary" to={`/waitlist?wl=${waitlistId}`}>
-          Yes, looks good
+          {t("yes_looks_good")}
         </NavButton>
         <Button variant="secondary" onClick={(evt) => setOpen(false)}>
-          No, go back to update my fit
+          {t("no_go_back_update_my_fit")}
         </Button>
       </Buttons>
     </>

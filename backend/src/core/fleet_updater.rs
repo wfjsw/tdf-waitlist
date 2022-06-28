@@ -1,4 +1,4 @@
-use crate::core::esi::{self, ESIScope};
+use crate::core::esi::{self};
 use crate::data::character;
 use crate::{config::Config, util::madness::Madness};
 use eve_data_core::TypeID;
@@ -114,7 +114,7 @@ impl FleetUpdater {
                         .get(
                             &format!("/v5/characters/{}/", id),
                             fleet.boss_id,
-                            ESIScope::PublicData,
+                            None,
                         )
                         .await?;
 

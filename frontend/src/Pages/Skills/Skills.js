@@ -3,11 +3,12 @@ import { AuthContext } from "../../contexts";
 import { useLocation, useHistory } from "react-router-dom";
 import { PageTitle } from "../../Components/Page";
 import { useApi } from "../../api";
-
+import { useTranslation } from "react-i18next";
 import { SkillDisplay } from "../../Components/SkillDisplay";
 
 export function Skills() {
   const authContext = React.useContext(AuthContext);
+  const { t } = useTranslation("skills");
   const queryParams = new URLSearchParams(useLocation().search);
   const history = useHistory();
 
@@ -25,7 +26,7 @@ export function Skills() {
 
   return (
     <>
-      <PageTitle>{basicInfo ? `Skills for ${basicInfo.name}` : "Skills"}</PageTitle>
+      <PageTitle>{basicInfo ? t('skills_for', {name: basicInfo.name}) : t('skills')}</PageTitle>
       <SkillDisplay characterId={characterId} ship={ship} setShip={setShip} />
     </>
   );

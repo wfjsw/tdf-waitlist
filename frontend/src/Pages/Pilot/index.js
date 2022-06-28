@@ -13,7 +13,7 @@ import {
   faPen,
   faPlane,
   faTimes,
-} from "@fortawesome/free-solid-svg-icons";
+} from "@fortawesome/pro-solid-svg-icons";
 import styled from "styled-components";
 import { InputGroup, NavButton } from "../../Components/Form";
 import { Row, Col } from "react-awesome-styled-grid";

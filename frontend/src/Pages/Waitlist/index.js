@@ -1,6 +1,7 @@
 import React from "react";
-import { AuthContext, ToastContext, EventContext } from "../../contexts";
-import { apiCall, errorToaster, useApi } from "../../api";
+import { useLocation } from "react-router";
+import { AuthContext, /*ToastContext, */ EventContext, WaitlistContext } from "../../contexts";
+import { apiCall, /*errorToaster, */ useApi } from "../../api";
 import { InputGroup, Button, Buttons, NavButton } from "../../Components/Form";
 import {
   ColumnWaitlist,
@@ -11,8 +12,8 @@ import {
   NotepadWaitlist,
   CategoryHeading,
 } from "./displaymodes";
-import _ from "lodash";
 import { useQuery } from "../../Util/query";
+import { useTranslation } from "react-i18next";
 
 function coalesceCalls(func, wait) {
   var nextCall = null;
@@ -41,11 +42,11 @@ function coalesceCalls(func, wait) {
   ];
 }
 
-async function removeEntry(id) {
-  return await apiCall("/api/waitlist/remove_x", {
-    json: { id },
-  });
-}
+// async function removeEntry(id) {
+//   return await apiCall("/api/waitlist/remove_x", {
+//     json: { id },
+//   });
+// }
 
 function useWaitlist(waitlistId) {
   const eventContext = React.useContext(EventContext);
@@ -82,15 +83,33 @@ function useFleetComposition() {
   const eventContext = React.useContext(EventContext);
   const [fleetMembers, setFleetMembers] = React.useState(null);
 
-  const refreshFn = React.useCallback(() => {
+  const refreshFn = React.useCallback(async () => {
     if (!authContext.access["fleet-view"]) {
       setFleetMembers(null);
       return;
     }
-    apiCall(`/api/fleet/members?character_id=${authContext.current.id}`, {}).then(
-      setFleetMembers,
-      () => setFleetMembers(null)
-    );
+
+    try {
+      const fleets = await apiCall("/api/fleet/status", {});
+
+      if (
+        !fleets ||
+        fleets.fleets.length === 0 ||
+        !fleets.fleets.some((n) => authContext.current.id === n.boss.id)
+      ) {
+        setFleetMembers(null);
+        return;
+      }
+
+      const fleetMembers = await apiCall(
+        `/api/fleet/members?character_id=${authContext.current.id}`,
+        {}
+      );
+      setFleetMembers(fleetMembers);
+    } catch (e) {
+      setFleetMembers(null);
+    }
+
   }, [authContext, setFleetMembers]);
 
   React.useEffect(() => {
@@ -115,38 +134,54 @@ function useFleetComposition() {
 
 export function Waitlist() {
   const authContext = React.useContext(AuthContext);
-  const toastContext = React.useContext(ToastContext);
+  // const toastContext = React.useContext(ToastContext);
+  const waitlistContext = React.useContext(WaitlistContext);
   const [query, setQuery] = useQuery();
-  const waitlistId = parseInt(query.wl);
+  const waitlistId = waitlistContext !== null ? waitlistContext.active : null;
   const [waitlistData, refreshWaitlist] = useWaitlist(waitlistId);
   const fleetComposition = useFleetComposition();
+  const { t } = useTranslation("waitlist");
   const displayMode = query.mode || "columns";
+  const location = useLocation();
+
+  React.useEffect(() => {
+    if (waitlistId !== null) {
+      const params = new URLSearchParams(location.search);
+      params.set("wl", waitlistId);
+      window.history.replaceState({}, "", `${location.pathname}?${params.toString()}`);
+    }
+  }, [waitlistId, location]);
 
   const setDisplayMode = (newMode) => {
     setQuery("mode", newMode);
   };
 
-  React.useEffect(() => {
-    // Redirect to wl=1 if we don't have one
-    if (!waitlistId) {
-      setQuery("wl", 1);
-      return null;
-    }
-  }, [waitlistId, setQuery]);
+  // React.useEffect(() => {
+  //   // Redirect to wl=1 if we don't have one
+  //   if (!waitlistId) {
+  //     setQuery("wl", 1);
+  //     return null;
+  //   }
+  // }, [waitlistId, setQuery]);
 
-  if (!waitlistId) {
-    return null; // Should be redirecting
+  // if (!waitlistId) {
+  //   return null; // Should be redirecting
+  // }
+  if (waitlistContext === null) {
+    return <em>{t("loading")}</em>;
   }
   if (waitlistData === null) {
-    return <em>Loading waitlist information.</em>;
+    return <em>{t("loading")}</em>;
   }
   if (!waitlistData.open) {
-    return <em>The waitlist is currently closed.</em>;
+    return <em>{t("notopen")}</em>;
   }
 
-  var myEntry = _.find(
-    waitlistData.waitlist,
-    (entry) => entry.character && entry.character.id === authContext.account_id
+  const myEntry = waitlistData.waitlist.find(
+    (ent) =>
+      ent &&
+      ent.fits &&
+      ent.fits.some((fit) => fit && fit.character && fit.character.id === authContext.current.id)
   );
 
   return (
@@ -154,35 +189,35 @@ export function Waitlist() {
       <Buttons>
         <InputGroup>
           <NavButton variant={myEntry ? null : "primary"} to={`/xup?wl=${waitlistId}`}>
-            {myEntry ? "Update fit(s)" : "Join waitlist"}
+            {myEntry ? t("update_fit") : t("join")}
           </NavButton>
-          <Button
+          {/* <Button
             variant={myEntry ? "danger" : null}
             onClick={(evt) => errorToaster(toastContext, removeEntry(myEntry.id))}
             disabled={myEntry ? false : true}
           >
-            Leave waitlist
-          </Button>
+            {t("leave")}
+          </Button> */}
         </InputGroup>
         <InputGroup>
           <Button active={displayMode === "columns"} onClick={(evt) => setDisplayMode("columns")}>
-            Columns
+            {t("columns")}
           </Button>
           <Button active={displayMode === "matrix"} onClick={(evt) => setDisplayMode("matrix")}>
-            Matrix
+            {t("matrix")}
           </Button>
           <Button active={displayMode === "compact"} onClick={(evt) => setDisplayMode("compact")}>
-            Compact
+            {t("compact")}
           </Button>
           <Button active={displayMode === "linear"} onClick={(evt) => setDisplayMode("linear")}>
-            Linear
+            {t("linear")}
           </Button>
           <Button active={displayMode === "rows"} onClick={(evt) => setDisplayMode("rows")}>
-            Rows
+            {t("rows")}
           </Button>
           {authContext.access["waitlist-view"] && (
             <Button active={displayMode === "notepad"} onClick={(evt) => setDisplayMode("notepad")}>
-              Notepad
+              {t("notepad")}
             </Button>
           )}
         </InputGroup>

@@ -1,12 +1,14 @@
 import React from "react";
 import { Route } from "react-router-dom";
 import { useQuery } from "../Util/query";
+import { useTranslation } from "react-i18next";
 
 function AuthStart({ fc = false, alt = false }) {
-  const [message, setMessage] = React.useState("Redirecting to EVE login");
+  const { t } = useTranslation("auth")
+  const [message, setMessage] = React.useState(t('redirecting'));
 
   React.useEffect(() => {
-    fetch("/api/auth/login_url?" + (fc ? "fc=true&" : "") + (alt ? "alt=true&" : ""))
+    fetch("/api/auth/login_url?" + (fc ? "fc=true&" : "")/* + (alt ? "alt=true&" : "")*/)
       .then((response) => {
         if (response.status === 200) {
           return response.text();
@@ -69,6 +71,7 @@ export function AuthCallback() {
 }
 
 export function AuthLogout() {
+  const { t } = useTranslation("auth")
   React.useEffect(() => {
     fetch("/api/auth/logout").then((response) => {
       // Force page refresh
@@ -76,13 +79,14 @@ export function AuthLogout() {
     });
   }, []);
 
-  return <p>Logging out...</p>;
+  return <p>{t("loggingout")}</p>;
 }
 
 export async function processAuth(callback) {
   const whoamiRaw = await fetch("/api/auth/whoami");
   if (whoamiRaw.status !== 200) {
     callback(null);
+    return;
   }
   const whoami = await whoamiRaw.json();
   var access = {};

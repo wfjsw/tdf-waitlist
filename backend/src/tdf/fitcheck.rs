@@ -63,14 +63,14 @@ impl<'a> FitChecker<'a> {
         checker.check_skill_reqs()?;
         checker.check_module_skills()?;
         checker.check_fit();
-        checker.check_fit_reqs();
-        checker.check_fit_implants_reqs();
-        checker.check_logi_implants();
+        // checker.check_fit_reqs();
+        // checker.check_fit_implants_reqs();
+        // checker.check_logi_implants();
         checker.set_category();
-        checker.add_snowflake_tags();
+        // checker.add_snowflake_tags();
         checker.add_implant_tag();
         checker.merge_tags();
-        checker.check_time_in_fleet();
+        // checker.check_time_in_fleet();
 
         checker.finish()
     }
@@ -144,11 +144,11 @@ impl<'a> FitChecker<'a> {
         if let Some((doctrine_fit, mut diff)) = fitmatch::find_fit(self.fit) {
             self.doctrine_fit = Some(doctrine_fit);
 
-            if doctrine_fit.name.contains("NOGANK") {
-                // For NOGANK, we consider all upgraded mods actually downgrades, since price is an issue
-                diff.module_downgraded.append(&mut diff.module_upgraded);
-                self.tags.insert("NO-GANK");
-            }
+            // if doctrine_fit.name.contains("NOGANK") {
+            //     // For NOGANK, we consider all upgraded mods actually downgrades, since price is an issue
+            //     diff.module_downgraded.append(&mut diff.module_upgraded);
+            //     self.tags.insert("NO-GANK");
+            // }
 
             let fit_ok = diff.module_downgraded.is_empty()
                 && diff.module_extra.is_empty()
@@ -157,12 +157,12 @@ impl<'a> FitChecker<'a> {
             if !(diff.cargo_missing.is_empty() && fit_ok) {
                 self.approved = false;
             }
-            if doctrine_fit.name.contains("STARTER") {
-                self.tags.insert("STARTER-FIT");
-            }
-            if fit_ok && doctrine_fit.name.contains("ELITE") {
-                self.tags.insert("ELITE-FIT");
-            }
+            // if doctrine_fit.name.contains("STARTER") {
+            //     self.tags.insert("STARTER-FIT");
+            // }
+            // if fit_ok && doctrine_fit.name.contains("ELITE") {
+            //     self.tags.insert("ELITE-FIT");
+            // }
 
             self.analysis = Some(PubAnalysis {
                 name: doctrine_fit.name.clone(),
@@ -316,13 +316,13 @@ impl<'a> FitChecker<'a> {
     fn set_category(&mut self) {
         let mut category =
             categories::categorize(self.fit).unwrap_or_else(|| "starter".to_string());
-        if self.tags.contains("STARTER-SKILLS") || self.tags.contains("STARTER-FIT") {
-            if category == "logi" {
-                self.approved = false;
-            } else {
-                category = "starter".to_string();
-            }
-        }
+        // if self.tags.contains("STARTER-SKILLS") || self.tags.contains("STARTER-FIT") {
+        //     if category == "logi" {
+        //         self.approved = false;
+        //     } else {
+        //         category = "starter".to_string();
+        //     }
+        // }
         self.category = Some(category);
     }
 

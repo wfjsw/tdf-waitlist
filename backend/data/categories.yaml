@@ -1,16 +1,22 @@
 categories:
+  - id: dps
+    name: 火力 DPS
   - id: logi
-    name: Logistics
-  - id: cqc
-    name: CQC
-  - id: sniper
-    name: Sniper
-  - id: bastion
-    name: Bastion
+    name: 后勤 Logi
+  - id: link
+    name: 加成 Link
+  - id: tackle
+    name: 抓人 Tackle
+  # - id: cqc
+  #   name: CQC
+  # - id: sniper
+  #   name: Sniper
+  # - id: bastion
+  #   name: 掠夺
   - id: starter
-    name: Starter
+    name: 新人 Starter
   - id: alt
-    name: Alts
+    name: 小号 ALT
 
 rules:
   # Logi
@@ -20,17 +26,80 @@ rules:
     category: logi
   - item: Nestor
     category: logi
-  # Bastion
-  - item: Bastion Module I
-    category: bastion
-  # Ships
-  - item: Megathron
-    category: starter
-  - item: Vindicator
-    category: cqc
+  - item: Scimitar
+    category: logi
+  - item: Triage Module I
+    category: logi
+  - item: Triage Module II
+    category: logi
+  - item: Armor Command Burst II
+    category: link
+  - item: Information Command Burst II
+    category: link
+  - item: Shield Command Burst II
+    category: link
+  - item: Mining Foreman Burst II
+    category: link
+  - item: Skirmish Command Burst II
+    category: link
+  - item: Nyx
+    category: dps
+  - item: Aeon
+    category: dps
+  - item: Wyvern
+    category: dps
+  - item: Hel
+    category: dps
+  - item: Ishtar
+    category: dps
+  - item: Leshak
+    category: dps
   - item: Paladin
-    category: sniper
-  - item: Nightmare
-    category: sniper
-  - item: Kronos
-    category: cqc
+    category: dps
+  - item: Barghest
+    category: dps
+  - item: Marshal
+    category: dps
+  - item: Avatar
+    category: dps
+  - item: Erebus
+    category: dps
+  - item: Leviathan
+    category: dps
+  - item: Ragnarok
+    category: dps
+  - item: Drekavac
+    category: dps
+  - item: Heavy Entropic Disintegrator II
+    category: dps
+  - item: Entropic Radiation Sink II
+    category: dps
+  - item: Siege Module I
+    category: dps
+  - item: Siege Module II
+    category: dps
+  - item: Bastion Module I
+    category: dps
+  - item: Slasher
+    category: tackle
+  - item: Stiletto
+    category: tackle
+  - item: Crow
+    category: tackle
+  - item: Ares
+    category: tackle
+
+  # Bastion
+  # - item: Bastion Module I
+  #   category: bastion
+  # Ships
+  # - item: Megathron
+  #   category: starter
+  # - item: Vindicator
+  #   category: cqc
+  # - item: Paladin
+  #   category: sniper
+  # - item: Nightmare
+  #   category: sniper
+  # - item: Kronos
+  #   category: cqc

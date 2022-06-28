@@ -16,14 +16,14 @@ async fn empty_waitlist(
 ) -> Result<&'static str, Madness> {
     account.require_access("waitlist-edit")?;
 
-    let waitlist = sqlx::query!("SELECT is_open FROM waitlist WHERE id = $1", input.waitlist_id)
-        .fetch_one(app.get_db())
-        .await?;
-    if waitlist.is_open {
-        return Err(Madness::BadRequest(
-            "Waitlist must be closed in order to empty it".to_string(),
-        ));
-    }
+    // let waitlist = sqlx::query!("SELECT is_open FROM waitlist WHERE id = $1", input.waitlist_id)
+    //     .fetch_one(app.get_db())
+    //     .await?;
+    // if waitlist.is_open {
+    //     return Err(Madness::BadRequest(
+    //         "Waitlist must be closed in order to empty it".to_string(),
+    //     ));
+    // }
 
     let mut tx = app.get_db().begin().await?;
 

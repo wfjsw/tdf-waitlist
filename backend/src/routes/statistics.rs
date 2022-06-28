@@ -34,7 +34,7 @@ use serde::Serialize;
 
 macro_rules! year_month {
         ( $a:expr ) => {
-        concat!("to_char(\"", $a, "\", 'YYYY-MM')")
+        concat!("to_char(", $a, ", 'YYYY-MM')")
     };
 }
 
@@ -180,7 +180,7 @@ impl Queries {
             year_month!(from_unixtime!("first_seen")),
             " yearmonth,
                 character_id,
-                CAST(SUM(last_seen - first_seen) AS SIGNED) time_in_fleet
+                SUM(last_seen - first_seen)::int8 time_in_fleet
             FROM fleet_activity
             GROUP BY 1, 2
         "
@@ -205,7 +205,7 @@ impl Queries {
         #[derive(sqlx::FromRow)]
         struct Result {
             yearmonth: String,
-            hull: i64,
+            hull: TypeID,
             time_in_fleet: i64,
         }
 
@@ -216,7 +216,7 @@ impl Queries {
             year_month!(from_unixtime!("first_seen")),
             " yearmonth,
                 hull,
-                CAST(SUM(last_seen - first_seen) AS SIGNED) time_in_fleet
+                SUM(last_seen - first_seen)::int8 time_in_fleet
             FROM fleet_activity
             GROUP BY 1, 2
         "
@@ -229,7 +229,7 @@ impl Queries {
             result
                 .entry(YearMonth::parse(&row.yearmonth))
                 .or_insert_with(BTreeMap::new)
-                .insert(row.hull as TypeID, row.time_in_fleet as f64);
+                .insert(row.hull, row.time_in_fleet as f64);
         }
 
         Ok(result)
@@ -241,7 +241,7 @@ impl Queries {
         #[derive(sqlx::FromRow)]
         struct Result {
             yearmonth: String,
-            hull: i64,
+            hull: TypeID,
             x_count: i64,
         }
 
@@ -266,7 +266,7 @@ impl Queries {
             result
                 .entry(YearMonth::parse(&row.yearmonth))
                 .or_insert_with(BTreeMap::new)
-                .insert(row.hull as TypeID, row.x_count as f64);
+                .insert(row.hull, row.x_count as f64);
         }
 
         Ok(result)
@@ -287,7 +287,7 @@ impl Queries {
                 COUNT(DISTINCT character_id) x_count
             FROM fit_history
             JOIN fitting ON fit_history.fit_id=fitting.id
-            WHERE logged_at > ?
+            WHERE logged_at > $1
             GROUP BY 1
             "
         ))
@@ -297,7 +297,7 @@ impl Queries {
 
         Ok(res
             .into_iter()
-            .map(|row| (row.hull as TypeID, row.x_count as f64))
+            .map(|row| (row.hull, row.x_count as f64))
             .collect())
     }
 
@@ -315,9 +315,9 @@ impl Queries {
             "
             SELECT
                 hull,
-                CAST(SUM(last_seen - first_seen) AS SIGNED) fleet_seconds
+                SUM(last_seen - first_seen)::int8 fleet_seconds
             FROM fleet_activity
-            WHERE first_seen > ?
+            WHERE first_seen > $1
             GROUP BY 1
         "
         ))
@@ -327,7 +327,7 @@ impl Queries {
 
         Ok(res
             .into_iter()
-            .map(|row| (row.hull as TypeID, row.fleet_seconds as f64))
+            .map(|row| (row.hull, row.fleet_seconds as f64))
             .collect())
     }
 }

@@ -35,7 +35,7 @@ async fn open_window(
             ),
             &Empty {},
             input.character_id,
-            ESIScope::UI_OpenWindow_v1,
+            Some(ESIScope::UI_OpenWindow_v1),
         )
         .await?;
 

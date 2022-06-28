@@ -4,18 +4,18 @@ import { Route } from "react-router-dom";
 import { AuthContext } from "../contexts";
 
 import { SkillRoutes } from "../Pages/Skills";
-import { Plans } from "../Pages/Skills/Plans";
+// import { Plans } from "../Pages/Skills/Plans";
 import { Waitlist } from "../Pages/Waitlist";
 import { Xup } from "../Pages/Xup";
 import { Pilot } from "../Pages/Pilot";
 import { Home } from "../Pages/Home";
 import { Legal } from "../Pages/Legal";
-import { Fits } from "../Pages/Fits";
-import { Guide, GuideIndex } from "../Pages/Guide";
+// import { Fits } from "../Pages/Fits";
+import { Guide, /*GuideIndex*/ } from "../Pages/Guide";
 
 import { FCRoutes } from "../Pages/FC";
 import { AuthRoutes } from "../Pages/Auth";
-import { ISKh, ISKhCalc } from "../Pages/ISKh";
+// import { ISKh, ISKhCalc } from "../Pages/ISKh";
 
 export function Routes() {
   const authContext = React.useContext(AuthContext);
@@ -27,24 +27,24 @@ export function Routes() {
       <Route exact path="/legal">
         <Legal />
       </Route>
-      <Route exact path="/guide">
+      {/* <Route exact path="/guide">
         <GuideIndex />
-      </Route>
+      </Route> */}
       <Route exact path="/guide/:guideName">
         <Guide />
       </Route>
-      <Route exact path="/isk-h/calc">
+      {/* <Route exact path="/isk-h/calc">
         <ISKhCalc />
       </Route>
       <Route exact path="/isk-h">
         <ISKh />
-      </Route>
-      <Route exact path="/fits">
+      </Route> */}
+      {/* <Route exact path="/fits">
         <Fits />
       </Route>
       <Route exact path="/skills/plans">
         <Plans />
-      </Route>
+      </Route> */}
       {authContext && (
         <>
           <Route exact path="/xup">

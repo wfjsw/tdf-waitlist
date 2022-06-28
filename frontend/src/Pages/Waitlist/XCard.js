@@ -12,11 +12,11 @@ import {
   faTrashAlt,
   faCheck,
   faExternalLinkAlt,
-  faStream,
+  faBook,
   faPlus,
   faExclamationTriangle,
   faTimes,
-} from "@fortawesome/free-solid-svg-icons";
+} from "@fortawesome/pro-solid-svg-icons";
 import _ from "lodash";
 
 import egoldBadge from "../Guide/guides/badges/egold.png";
@@ -25,6 +25,7 @@ import { SkillDisplay } from "../../Components/SkillDisplay";
 import { Box } from "../../Components/Box";
 import { Title } from "../../Components/Page";
 import { Button, InputGroup } from "../../Components/Form";
+import { useTranslation } from "react-i18next";
 
 const badgeOrder = [
   "HQ-FC",
@@ -161,8 +162,9 @@ function ShipDisplay({ fit, onAction }) {
   const authContext = React.useContext(AuthContext);
   const toastContext = React.useContext(ToastContext);
   const [modalOpen, setModalOpen] = React.useState(false);
+  const { t } = useTranslation("waitlist");
 
-  const namePrefix = fit.character ? `${fit.character.name}'s ` : "";
+  const namePrefix = fit.character ? `${fit.character.name}` : "";
   if (fit.dna && fit.hull) {
     return (
       <>
@@ -178,7 +180,7 @@ function ShipDisplay({ fit, onAction }) {
                       errorToaster(toastContext, approveFit(fit.id)).then(onAction);
                     }}
                   >
-                    Approve
+                    {t("approve")}
                   </Button>
                   <Button
                     onClick={(evt) => {
@@ -193,7 +195,7 @@ function ShipDisplay({ fit, onAction }) {
                       }
                     }}
                   >
-                    Reject
+                    {t("reject")}
                   </Button>
                 </InputGroup>
               )}
@@ -219,8 +221,7 @@ function ShipDisplay({ fit, onAction }) {
             alt={fit.hull.name}
           />
           <span style={{ flexShrink: 1 }}>
-            {namePrefix}
-            {fit.hull.name}
+            {namePrefix} ({fit.hull.name})
           </span>
         </a>
       </>
@@ -234,8 +235,7 @@ function ShipDisplay({ fit, onAction }) {
           alt={fit.hull.name}
         />
         <span>
-          {namePrefix}
-          {fit.hull.name}
+          {namePrefix} ({fit.hull.name})
         </span>
       </>
     );
@@ -247,7 +247,7 @@ function ShipDisplay({ fit, onAction }) {
           src={`https://images.evetech.net/types/28606/icon?size=64`}
           alt=""
         />
-        <span>{namePrefix}Ship</span>
+        <span>{namePrefix} (Ship)</span>
       </>
     );
   }
@@ -260,7 +260,7 @@ function SkillButton({ characterId, ship }) {
   return (
     <>
       <a title="Show skills" onClick={(evt) => setOnScreen(true)}>
-        <FontAwesomeIcon icon={faStream} />
+        <FontAwesomeIcon icon={faBook} />
       </a>
       {onScreen && (
         <Modal open={true} setOpen={setOnScreen}>
@@ -317,6 +317,8 @@ function PilotInformation({ characterId, authContext }) {
 export function XCard({ entry, fit, onAction }) {
   const authContext = React.useContext(AuthContext);
   const toastContext = React.useContext(ToastContext);
+  const { t } = useTranslation("waitlist");
+
   const is_alt = fit.is_alt;
   const accountName = entry.character ? entry.character.name : "Name hidden";
   const tags = _.sortBy(fit.tags, function (item) {
@@ -343,7 +345,7 @@ export function XCard({ entry, fit, onAction }) {
   });
 
   const approvalFlag = fit.approved ? null : (
-    <span title="Pending approval">
+    <span title={t("pending_approval")}>
       <FontAwesomeIcon icon={faExclamationTriangle} />
     </span>
   );
@@ -391,7 +393,7 @@ export function XCard({ entry, fit, onAction }) {
         <XCardDOM.Footer>
           {entry.can_remove ? (
             <a
-              title="Remove x-up"
+              title={t("remove_xup")}
               onClick={(evt) => errorToaster(toastContext, removeFit(fit.id)).then(onAction)}
             >
               <FontAwesomeIcon icon={faTrashAlt} />
@@ -399,7 +401,7 @@ export function XCard({ entry, fit, onAction }) {
           ) : null}
           {authContext.access["waitlist-view"] && (
             <a
-              title="Open in-game profile"
+              title={t("open_ingame_profile")}
               onClick={(evt) =>
                 errorToaster(toastContext, openWindow(fit.character.id, authContext.current.id))
               }
@@ -411,16 +413,16 @@ export function XCard({ entry, fit, onAction }) {
             <SkillButton characterId={fit.character.id} ship={fit.hull.name} />
           )}
           {authContext.access["pilot-view"] && (
-            <NavLink title="Pilot information" to={"/pilot?character_id=" + fit.character.id}>
+            <NavLink title={t("pilot_info")} to={"/pilot?character_id=" + fit.character.id}>
               <PilotInformation characterId={fit.character.id} authContext={authContext} />
             </NavLink>
           )}
           {_.isFinite(fit.hours_in_fleet) ? (
-            <span title="Hours in fleet">{fit.hours_in_fleet}h</span>
+            <span title={t("hours_in_fleet")}>{fit.hours_in_fleet}h</span>
           ) : null}
           {authContext.access["waitlist-manage"] && (
             <a
-              title="Reject"
+              title={t("reject")}
               onClick={(evt) => {
                 var rejectionReason = prompt(
                   "Why is the fit being rejected? (Will be displayed to pilot)"
@@ -435,7 +437,7 @@ export function XCard({ entry, fit, onAction }) {
           )}
           {authContext.access["fleet-invite"] && fit.approved && (
             <a
-              title="Invite"
+              title={t("invite")}
               onClick={(evt) =>
                 errorToaster(toastContext, invite(fit.id, authContext.current.id)).then(onAction)
               }
@@ -445,7 +447,7 @@ export function XCard({ entry, fit, onAction }) {
           )}
           {authContext.access["waitlist-manage"] && !fit.approved && (
             <a
-              title="Approve"
+              title={t("approve")}
               onClick={(evt) => errorToaster(toastContext, approveFit(fit.id)).then(onAction)}
             >
               <FontAwesomeIcon icon={faCheck} />

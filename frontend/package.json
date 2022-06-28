@@ -3,25 +3,34 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@fortawesome/fontawesome-svg-core": "^1.2.36",
-    "@fortawesome/free-brands-svg-icons": "^5.15.4",
-    "@fortawesome/free-solid-svg-icons": "^5.15.4",
-    "@fortawesome/react-fontawesome": "^0.1.15",
+    "@fortawesome/fontawesome-svg-core": "^6.1.1",
+    "@fortawesome/pro-brands-svg-icons": "^6.1.1",
+    "@fortawesome/pro-regular-svg-icons": "^6.1.1",
+    "@fortawesome/pro-solid-svg-icons": "^6.1.1",
+    "@fortawesome/react-fontawesome": "^0.1.18",
+    "@sentry/react": "^6.19.7",
+    "@sentry/tracing": "^6.19.7",
     "@types/react": "^18.0.7",
     "buffer": "^6.0.3",
     "chart.js": "^3.5.1",
+    "i18next": "^21.8.4",
+    "i18next-browser-languagedetector": "^6.1.4",
+    "i18next-http-backend": "^1.4.0",
     "lodash": "^4.17.21",
     "prop-types": "^15.8.1",
     "react": "^17.0.2",
     "react-awesome-styled-grid": "^3.1.2",
     "react-chartjs-2": "^3.0.4",
     "react-dom": "^17.0.2",
+    "react-helmet": "^6.1.0",
+    "react-i18next": "^11.16.9",
     "react-is": "^17.0.2",
     "react-markdown": "^7.0.1",
     "react-router": "^5.3.0",
     "react-router-dom": "^5.3.0",
     "react-scripts": "4.0.3",
     "remark-gfm": "^2.0.0",
+    "source-map-explorer": "^2.5.2",
     "styled-components": "^5.3.1",
     "typescript": "^4.6.3",
     "varint": "^6.0.0",
@@ -37,7 +46,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "analyze": "source-map-explorer 'build/static/js/*.js'"
   },
   "eslintConfig": {
     "extends": [
@@ -69,5 +79,5 @@
     "trailingComma": "es5",
     "printWidth": 100
   },
-  "packageManager": "yarn@3.2.0"
+  "packageManager": "yarn@3.2.1"
 }

@@ -33,7 +33,21 @@ async fn add_acl(
         return Err(Madness::BadRequest(format!("Cannot grant {}", input.level)));
     }
 
-    let character = sqlx::query!("SELECT name FROM \"character\" WHERE id = $1", input.id)
+    let main_character_id = {
+        if let Some(record) = sqlx::query!(
+            "SELECT account_id FROM alt_character WHERE alt_id = $1",
+            input.id
+        )
+        .fetch_optional(app.get_db())
+        .await?
+        {
+            record.account_id
+        } else {
+            input.id
+        }
+    };
+
+    let character = sqlx::query!("SELECT name FROM \"character\" WHERE id = $1", main_character_id)
         .fetch_optional(app.get_db())
         .await?;
     if character.is_none() {
@@ -43,7 +57,7 @@ async fn add_acl(
         )));
     }
     // Check if id is already in acl & you are allowed to retag
-    let the_acl = sqlx::query!("SELECT level FROM admins WHERE character_id = $1", input.id)
+    let the_acl = sqlx::query!("SELECT level FROM admins WHERE character_id = $1", main_character_id)
         .fetch_optional(app.get_db())
         .await?;
     if let Some(the_acl) = the_acl {
@@ -58,9 +72,9 @@ async fn add_acl(
         }
     }
     // Alts shouldn't have ACLs, so unlink them
-    sqlx::query!("DELETE FROM alt_character WHERE alt_id = $1", input.id)
-        .execute(app.get_db())
-        .await?;
+    // sqlx::query!("DELETE FROM alt_character WHERE alt_id = $1", input.id)
+    //     .execute(app.get_db())
+    //     .await?;
 
     sqlx::query!(
         "INSERT INTO admins (character_id, level) VALUES ($1, $2) ON CONFLICT (character_id) DO UPDATE SET level = $2",
@@ -86,7 +100,21 @@ async fn remove_acl(
 ) -> Result<&'static str, Madness> {
     account.require_access("access-manage")?;
 
-    let the_acl = sqlx::query!("SELECT level FROM admins WHERE character_id = $1", input.id)
+    let main_character_id = {
+        if let Some(record) = sqlx::query!(
+            "SELECT account_id FROM alt_character WHERE alt_id = $1",
+            input.id
+        )
+        .fetch_optional(app.get_db())
+        .await?
+        {
+            record.account_id
+        } else {
+            input.id
+        }
+    };
+
+    let the_acl = sqlx::query!("SELECT level FROM admins WHERE character_id = $1", main_character_id)
         .fetch_optional(app.get_db())
         .await?;
     if let Some(the_acl) = the_acl {
@@ -100,7 +128,7 @@ async fn remove_acl(
             )));
         }
 
-        sqlx::query!("DELETE FROM admins WHERE character_id = $1", input.id)
+        sqlx::query!("DELETE FROM admins WHERE character_id = $1", main_character_id)
             .execute(app.get_db())
             .await?;
     }

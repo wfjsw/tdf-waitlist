@@ -4,7 +4,8 @@ import { NavLink } from "react-router-dom";
 import styled from "styled-components";
 import { MobileButton } from "../Components/Form";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBars, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faBars, faTimes } from "@fortawesome/pro-solid-svg-icons";
+import { useTranslation } from 'react-i18next';
 
 const Links = styled(NavLink).attrs((props) => ({
   activeClassName: "active",
@@ -80,18 +81,20 @@ export function MobileNavButton({ isOpen, setIsOpen }) {
 }
 
 export function NavLinks({ whoami }) {
+  const { t } = useTranslation('navigation');
+
   return (
     <>
       {whoami && (
         <>
           <Links exact to="/waitlist">
-            Waitlist
+            {t('waitlist')}
           </Links>
           <Links exact to="/skills">
-            Skills
+            {t('skills')}
           </Links>
           <Links exact to="/pilot">
-            Pilot
+            {t('pilot')} 
           </Links>
         </>
       )}
@@ -101,22 +104,22 @@ export function NavLinks({ whoami }) {
       <Links exact to="/fits">
         Fits
       </Links> */}
-      <Links exact to="/isk-h/calc">
-        ISK/h calc
-      </Links>
+      {/* <Links exact to="/isk-h/calc">
+        {t('isk_h')}
+      </Links> */}
       {whoami && whoami.access["fleet-view"] && (
         <Links exact to="/fc/fleet">
-          Fleet
+          {t('fleet')}
         </Links>
       )}
       {whoami && whoami.access["fleet-view"] && (
         <Links exact to="/fc">
-          FC
+          {t('fc')}
         </Links>
       )}
       {whoami && whoami.access["search"] && (
         <Links exact to="/fc/search">
-          Search
+          {t('search')}
         </Links>
       )}
     </>

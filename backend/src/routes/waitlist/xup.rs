@@ -7,7 +7,6 @@ use crate::{
     app::Application,
     core::{
         auth::{authorize_character, AuthenticatedAccount},
-        esi::ESIScope,
     },
     data::{implants, skills},
     tdf,
@@ -78,7 +77,7 @@ async fn get_time_in_fleet(db: &crate::DB, character_id: i64) -> Result<i64, sql
         seconds: Option<i64>,
     }
     let result: TimeResult = sqlx::query_as::<_, TimeResult>(
-        "SELECT CAST(SUM(last_seen - first_seen) AS SIGNED) AS seconds FROM fleet_activity WHERE character_id=?",
+        "SELECT SUM(last_seen - first_seen)::int8 AS seconds FROM fleet_activity WHERE character_id = $1",
     )
     .bind(character_id)
     .fetch_one(db)
@@ -115,7 +114,7 @@ async fn am_i_banned(app: &Application, character_id: i64) -> Result<bool, Madne
         .get(
             &format!("/v5/characters/{}/", character_id),
             character_id,
-            ESIScope::PublicData,
+            None,
         )
         .await?;
 
@@ -265,7 +264,7 @@ async fn xup_multi(
         sqlx::query!("
             INSERT INTO waitlist_entry_fit (character_id, entry_id, fit_id, category, approved, tags, implant_set_id, fit_analysis, cached_time_in_fleet, is_alt)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        ", character_id, entry_id, fit_id, fit_checked.category, fit_checked.approved, tags, implant_set_id, fit_analysis, this_pilot_data.time_in_fleet, is_alt)
+        ", character_id, entry_id, fit_id, fit_checked.category, fit_checked.approved, tags , implant_set_id, fit_analysis, this_pilot_data.time_in_fleet, is_alt)
         .execute(&mut tx).await?;
 
         // Log the x'up

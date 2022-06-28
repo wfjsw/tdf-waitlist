@@ -1,10 +1,31 @@
+
+use std::net::IpAddr;
+
+use branca::Branca;
+
+use rocket::http::RawStr;
+use rocket::request::{FromRequest, Outcome};
 use rocket::serde::json::Json;
+use rocket::{request, Request};
 use serde::{Deserialize, Serialize};
 
 use crate::app;
 use crate::core::auth::{AuthenticatedAccount, AuthenticationError, CookieSetter};
-use crate::core::esi::ESIScope;
+use crate::core::esi::{ESIError, ESIScope};
 use crate::util::{madness::Madness, types};
+
+pub struct RealIP(IpAddr);
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for RealIP {
+    type Error = std::convert::Infallible;
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        match request.client_ip() {
+            Some(ip) => Outcome::Success(RealIP(ip)),
+            None => Outcome::Forward(()),
+        }
+    }
+}
 
 #[derive(Serialize)]
 struct WhoamiResponse {
@@ -18,13 +39,22 @@ async fn whoami(
     app: &rocket::State<app::Application>,
     account: AuthenticatedAccount,
 ) -> Result<Json<WhoamiResponse>, Madness> {
-    let character = sqlx::query!("SELECT id, name FROM \"character\" WHERE id = $1", account.id)
-        .fetch_one(app.get_db())
-        .await?;
+    let character = sqlx::query!(
+        "SELECT id, name FROM \"character\" WHERE id = $1",
+        account.id
+    )
+    .fetch_one(app.get_db())
+    .await?;
     let mut characters = vec![types::Character {
         id: character.id,
         name: character.name,
+        account_id: Some(account.id),
     }];
+
+    let valid_token = app.esi_client.check(account.id).await;
+    if !valid_token {
+        return Err(Madness::ESIError(ESIError::NoToken));
+    }
 
     let alts = sqlx::query!(
         "SELECT id, name FROM alt_character JOIN \"character\" ON alt_character.alt_id = \"character\".id WHERE account_id = $1",
@@ -37,6 +67,7 @@ async fn whoami(
         characters.push(types::Character {
             id: alt.id,
             name: alt.name,
+            account_id: Some(account.id),
         });
     }
 
@@ -70,55 +101,99 @@ async fn logout<'r>(
     Ok(CookieSetter(
         "".to_string(),
         app.config.esi.url.starts_with("https:"),
+       Some("/".to_owned())
     ))
 }
 
-#[get("/api/auth/login_url?<alt>&<fc>")]
-fn login_url(alt: bool, fc: bool, app: &rocket::State<app::Application>) -> String {
-    let state = match alt {
-        true => "alt",
-        false => "normal",
-    };
+#[get("/api/auth/login_url")]
+fn login_url(/*fc: bool, client_ip: RealIP,*/ app: &rocket::State<app::Application>) -> String {
+    let mut branca = Branca::new(&app.token_secret).unwrap();
 
-    let mut scopes = vec![
+    // let ip_bytes = match client_ip.0 {
+    //     IpAddr::V4(ip) => [
+    //         ip.octets(),
+    //         [ 0xff, 0xff, 0xff, 0xff ], [ 0xff, 0xff, 0xff, 0xff], [ 0xff, 0xff, 0xff, 0xff ],
+    //     ].concat().try_into().unwrap(),
+    //     IpAddr::V6(ip) => ip.octets(),
+    // };
+
+    let state = branca.encode(b"oauthhellostate").unwrap();
+
+    let scopes = vec![
         ESIScope::CAS_OpenID,
         ESIScope::CAS_Accounts,
+        ESIScope::CAS_Groups,
         ESIScope::CAS_Passthrough,
-
-        ESIScope::PublicData,
+        // ESIScope::PublicData,
         ESIScope::Skills_ReadSkills_v1,
         ESIScope::Clones_ReadImplants_v1,
+
+        ESIScope::Fleets_ReadFleet_v1,
+        ESIScope::Fleets_WriteFleet_v1,
+        ESIScope::UI_OpenWindow_v1,
     ];
-    if fc {
-        scopes.extend(vec![
-            ESIScope::Fleets_ReadFleet_v1,
-            ESIScope::Fleets_WriteFleet_v1,
-            ESIScope::UI_OpenWindow_v1,
-        ])
-    }
+    // if fc {
+    //     scopes.extend(vec![
+    //         ESIScope::Fleets_ReadFleet_v1,
+    //         ESIScope::Fleets_WriteFleet_v1,
+    //         ESIScope::UI_OpenWindow_v1,
+    //     ])
+    // }
+
+    let redirect_uri = RawStr::new(&app.config.esi.url);
+    let redirect_uri_encoded = redirect_uri.percent_encode();
 
     format!(
-        "https://login.eveonline.com/v2/oauth/authorize?response_type=code&redirect_uri={}&client_id={}&scope={}&state={}",
-        app.config.esi.url,
+        // "https://login.eveonline.com/v2/oauth/authorize?response_type=code&redirect_uri={}&client_id={}&scope={}&state={}",
+        "https://seat.winterco.org/oauth/authorize?response_type=code&redirect_uri={}&client_id={}&scope={}&state={}",
+        redirect_uri_encoded,
         app.config.esi.client_id,
-        scopes.iter().fold(String::new(), |acc, scope| acc + " " + scope.as_str()).trim_end(),
+        scopes.iter().fold(String::new(), |acc, scope| acc + " " + scope.as_str()).trim(),
         state
     )
 }
 
-#[derive(Deserialize)]
-struct CallbackData<'r> {
-    code: &'r str,
-    state: Option<&'r str>,
-}
+// #[derive(Deserialize)]
+// struct CallbackData<'r> {
+//     code: &'r str,
+//     state: Option<&'r str>,
+// }
 
-#[post("/api/auth/cb", data = "<input>")]
+#[get("/api/auth/cb?<code>&<state>")]
 async fn callback(
-    input: Json<CallbackData<'_>>,
+    code: &str,
+    state: Option<&str>,
+    // input: Json<CallbackData<'_>>,
+    // client_ip: RealIP, 
     app: &rocket::State<app::Application>,
     account_raw: Result<AuthenticatedAccount, AuthenticationError>,
 ) -> Result<CookieSetter, Madness> {
-    let account = match account_raw {
+
+    let branca = Branca::new(&app.token_secret).unwrap();
+
+    // let ip_bytes = match client_ip.0 {
+    //     IpAddr::V4(ip) => [
+    //         ip.octets(),
+    //         [ 0xff, 0xff, 0xff, 0xff ], [ 0xff, 0xff, 0xff, 0xff], [ 0xff, 0xff, 0xff, 0xff ],
+    //     ].concat().try_into().unwrap(),
+    //     IpAddr::V6(ip) => ip.octets(),
+    // };
+
+    let state = match state {
+        Some(state) => state,
+        None => return Err(Madness::BadRequest("No state provided".to_owned())),
+    };
+
+    let state_bytes = match branca.decode(state, 1800) {
+        Ok(state) => state,
+        Err(_) => return Err(Madness::BadRequest("Invalid state".to_owned())),
+    };
+
+    if state_bytes != b"oauthhellostate" {
+        return Err(Madness::BadRequest("Invalid state".to_owned()));
+    }
+
+    let _account = match account_raw {
         Err(AuthenticationError::MissingCookie) => None,
         Err(AuthenticationError::InvalidToken) => None,
         Err(AuthenticationError::DatabaseError(e)) => return Err(e.into()),
@@ -127,40 +202,42 @@ async fn callback(
 
     let character_id = app
         .esi_client
-        .process_authorization_code(input.code)
+        .process_authorization_code(code)
         .await?;
 
-    let logged_in_account =
-        if input.state.is_some() && input.state.unwrap() == "alt" && account.is_some() {
-            let account = account.unwrap();
-            if account.id != character_id {
-                let is_admin = sqlx::query!(
-                    "SELECT character_id FROM admins WHERE character_id = $1",
-                    character_id
-                )
-                .fetch_optional(app.get_db())
-                .await?;
+    // let logged_in_account = if input.state.is_some()
+    //     && input.state.unwrap() == "alt"
+    //     && account.is_some()
+    // {
+    //     let account = account.unwrap();
+    //     if account.id != character_id {
+    //         let is_admin = sqlx::query!(
+    //             "SELECT character_id FROM admins WHERE character_id = $1",
+    //             character_id
+    //         )
+    //         .fetch_optional(app.get_db())
+    //         .await?;
 
-                if is_admin.is_some() {
-                    return Err(Madness::BadRequest(
-                        "Character is flagged as a main and cannot be added as an alt".to_string(),
-                    ));
-                }
+    //         if is_admin.is_some() {
+    //             return Err(Madness::BadRequest(
+    //                 "Character is flagged as a main and cannot be added as an alt".to_string(),
+    //             ));
+    //         }
 
-                sqlx::query!(
-                    "INSERT INTO alt_character (account_id, alt_id) VALUES ($1, $2) ON CONFLICT (account_id, alt_id) DO NOTHING",
-                    account.id,
-                    character_id
-                )
-                .execute(app.get_db())
-                .await?;
-            }
-            account.id
-        } else {
-            character_id
-        };
+    //         sqlx::query!(
+    //                 "INSERT INTO alt_character (account_id, alt_id) VALUES ($1, $2) ON CONFLICT (account_id, alt_id) DO NOTHING",
+    //                 account.id,
+    //                 character_id
+    //             )
+    //             .execute(app.get_db())
+    //             .await?;
+    //     }
+    //     account.id
+    // } else {
+    //     character_id
+    // };
 
-    Ok(crate::core::auth::create_cookie(app, logged_in_account))
+    Ok(crate::core::auth::create_cookie(app, character_id, Some("/".to_owned())))
 }
 
 pub fn routes() -> Vec<rocket::Route> {

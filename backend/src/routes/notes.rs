@@ -29,8 +29,10 @@ async fn list_notes(
 
     let notes_q = sqlx::query!(
         "
-            SELECT author_id, author.name author_name, note, logged_at FROM character_note
+            SELECT author_id, author.name author_name, note, logged_at, COALESCE(\"alt_character\".account_id, author_id) AS account_id
+            FROM character_note
             JOIN \"character\" author ON author.id = author_id
+            LEFT JOIN \"alt_character\" ON author_id = \"alt_character\".alt_id
             WHERE character_id = $1
         ",
         character_id
@@ -43,6 +45,7 @@ async fn list_notes(
             author: Character {
                 id: note.author_id,
                 name: note.author_name,
+                account_id: note.account_id,
             },
             logged_at: note.logged_at,
             note: note.note,

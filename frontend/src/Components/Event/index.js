@@ -1,8 +1,9 @@
 import React from "react";
 
-import { EventContext } from "../../contexts";
+import { AuthContext, EventContext, WaitlistContext } from "../../contexts";
+import { useTranslation } from "react-i18next";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBell, faBellSlash } from "@fortawesome/free-solid-svg-icons";
+import { faBell, faBellSlash } from "@fortawesome/pro-solid-svg-icons";
 import { Modal } from "../Modal";
 import { Button } from "../Form";
 import { Box } from "../Box";
@@ -10,10 +11,17 @@ import { Box } from "../Box";
 import soundFile from "./bell-ringing-04.mp3";
 const storageKey = "EventNotifierSettings";
 
-function handleMessage(event) {
+function handleMessage(event, authContext, waitlistContext) {
   const message = JSON.parse(event.data);
   if (window.Notification && Notification.permission === "granted") {
-    new Notification(message.message, { silent: true });
+    if (message.permission && !authContext.access[message.permission]) return;
+    if (message.waitlist_id && waitlistContext && waitlistContext.active !== message.waitlist_id) return;
+    const options = { silent: true };
+    if (message.tag) {
+      options.tag = message.tag;
+      options.renotify = true;
+    }
+    new Notification(message.message, options);
   } else if (window.Notification && Notification.permission === "default") {
     // RIP, we didn't ask for permission first!?
     Notification.requestPermission();
@@ -23,7 +31,10 @@ function handleMessage(event) {
 export function EventNotifier() {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(false);
+  const authContext = React.useContext(AuthContext);
   const eventContext = React.useContext(EventContext);
+  const waitlistContext = React.useContext(WaitlistContext);
+  const { t } = useTranslation('notification');
   const playerRef = React.useRef(null);
 
   const [settings, setSettings] = React.useState(() => {
@@ -69,12 +80,13 @@ export function EventNotifier() {
     }
 
     eventContext.addEventListener("wakeup", handleWakeup);
-    eventContext.addEventListener("message", handleMessage);
+    const msgHandler = (event) => handleMessage(event, authContext, waitlistContext);
+    eventContext.addEventListener("message", msgHandler);
     return () => {
       eventContext.removeEventListener("wakeup", handleWakeup);
-      eventContext.removeEventListener("message", handleMessage);
+      eventContext.removeEventListener("message", msgHandler);
     };
-  }, [handleWakeup, eventContext]);
+  }, [handleWakeup, authContext, eventContext, waitlistContext]);
 
   return (
     <>
@@ -87,11 +99,11 @@ export function EventNotifier() {
                 onChange={(evt) => setSettings({ ...settings, enableSound: !!evt.target.checked })}
                 type="checkbox"
               />{" "}
-              Enable sound notifications
+              {t('enable_sound')}
             </label>
           </p>
           <Button onClick={(evt) => handleWakeup({ data: "This is a test alert" })}>
-            Send test notification
+            {t('send_test')}
           </Button>
         </Box>
       </Modal>
@@ -110,8 +122,8 @@ export function EventNotifier() {
         onClick={(evt) => setModalOpen(true)}
         title={
           settings.enableSound
-            ? "Sound alerts are currently enabled"
-            : "Sound alerts are currently disabled"
+            ? t('sound_enabled')
+            : t('sound_disabled')
         }
       >
         <FontAwesomeIcon fixedWidth icon={settings.enableSound ? faBell : faBellSlash} />

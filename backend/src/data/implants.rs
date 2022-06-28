@@ -8,6 +8,6 @@ pub async fn get_implants(app: &Application, character_id: i64) -> Result<Vec<Ty
     let path = format!("/v2/characters/{}/implants/", character_id);
     Ok(app
         .esi_client
-        .get(&path, character_id, ESIScope::Clones_ReadImplants_v1)
+        .get(&path, character_id, Some(ESIScope::Clones_ReadImplants_v1))
         .await?)
 }

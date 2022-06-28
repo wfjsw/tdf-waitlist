@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::{BTreeSet}, sync::Arc, fs::File, io::Read, ops::Sub};
 
 struct ESIRawClient {
     http: reqwest::Client,
@@ -15,8 +15,16 @@ pub struct ESIClient {
 #[derive(Debug, Deserialize)]
 struct OAuthTokenResponse {
     access_token: String,
-    refresh_token: String,
-    expires_in: i64,
+    refresh_token: Option<String>,
+    id_token: Option<String>,
+    // expires_in: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AccountInfo {
+    id: i64,
+    name: String,
+    valid: bool
 }
 
 #[derive(Debug)]
@@ -25,8 +33,10 @@ pub struct AuthResult {
     pub character_name: String,
     pub access_token: String,
     pub access_token_expiry: chrono::DateTime<chrono::Utc>,
-    pub refresh_token: String,
+    pub refresh_token: Option<String>,
     pub scopes: BTreeSet<String>,
+    pub alt_ids: Option<Vec<AccountInfo>>,
+    pub groups: Option<BTreeSet<String>>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -41,12 +51,15 @@ pub enum ESIError {
     NoToken,
     #[error("missing ESI scope")]
     MissingScope,
+    #[error("JWT decoding failure")]
+    JWTError(#[from] jsonwebtoken::errors::Error),
+    
 }
 
 #[derive(Debug, Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub enum ESIScope {
-    PublicData,
+    // PublicData,
     Fleets_ReadFleet_v1,
     Fleets_WriteFleet_v1,
     UI_OpenWindow_v1,
@@ -55,6 +68,8 @@ pub enum ESIScope {
 
     CAS_OpenID,
     CAS_Accounts,
+
+    CAS_Groups,
     CAS_Passthrough,
 }
 
@@ -62,7 +77,7 @@ impl ESIScope {
     pub fn as_str(&self) -> &'static str {
         use ESIScope::*;
         match self {
-            PublicData => "publicData",
+            // PublicData => "publicData",
             Fleets_ReadFleet_v1 => "esi-fleets.read_fleet.v1",
             Fleets_WriteFleet_v1 => "esi-fleets.write_fleet.v1",
             UI_OpenWindow_v1 => "esi-ui.open_window.v1",
@@ -71,6 +86,7 @@ impl ESIScope {
 
             CAS_OpenID => "openid",
             CAS_Accounts => "accounts",
+            CAS_Groups => "groups",
             CAS_Passthrough => "passthrough",
         }
     }
@@ -87,9 +103,18 @@ impl From<reqwest::Error> for ESIError {
 
 impl ESIRawClient {
     pub fn new(client_id: String, client_secret: String) -> ESIRawClient {
+
+        let mut buf = Vec::new();
+        File::open("/usr/local/share/ca-certificates/origin_ca_ecc_root.crt").unwrap().read_to_end(&mut buf).unwrap();
+
+        // create a certificate
+        let cert = reqwest::Certificate::from_pem(&buf).unwrap();
+
         ESIRawClient {
             http: reqwest::Client::builder()
                 .user_agent("Waitlist (https://github.com/TvdW/tdf-waitlist)")
+                .add_root_certificate(cert)
+                // .danger_accept_invalid_certs(true)
                 .build()
                 .unwrap(),
             client_id,
@@ -101,17 +126,14 @@ impl ESIRawClient {
         &self,
         grant_type: &str,
         token: &str,
-        scopes: Option<&BTreeSet<String>>,
+        // scopes: Option<&BTreeSet<String>>,
     ) -> Result<OAuthTokenResponse, ESIError> {
         #[derive(Serialize)]
         struct OAuthTokenRequest<'a> {
             grant_type: &'a str,
             refresh_token: Option<&'a str>,
             code: Option<&'a str>,
-            scope: Option<String>,
         }
-
-        let scope_str = scopes.map(|s| join_scopes(s));
 
         let request = OAuthTokenRequest {
             grant_type,
@@ -123,12 +145,51 @@ impl ESIRawClient {
                 "refresh_token" => None,
                 _ => Some(token),
             },
-            scope: scope_str,
         };
         Ok(self
             .http
-            .post("https://login.eveonline.com/v2/oauth/token")
+            .post("https://seat.winterco.org/oauth/token")
             .basic_auth(&self.client_id, Some(&self.client_secret))
+            .form(&request)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<OAuthTokenResponse>()
+            .await?)
+    }
+
+    async fn process_oauth_token_passthrough(
+        &self,
+        character_id: i64,
+        token: &str,
+        scopes: Option<&BTreeSet<String>>,
+    ) -> Result<OAuthTokenResponse, ESIError> {
+        #[derive(Serialize)]
+        struct OAuthTokenRequest {
+            scope: Option<String>,
+        }
+
+        // let scope_str = scopes
+        //     .map(|s| s.into_iter().cloned().filter(|p| *p == "publicData" || p.starts_with("esi-")).collect() )
+        //     .map(|s| join_scopes(s));
+
+        let scope_str = match scopes {
+            Some(s) => {
+                let mut p_scopes = s.to_owned();
+                p_scopes.retain(|s| s == "publicData" || s.starts_with("esi-"));
+                Some(join_scopes(&p_scopes))
+            }, 
+            None => None,
+        };
+
+        let request = OAuthTokenRequest {
+            scope: scope_str,
+        };
+
+        Ok(self
+            .http
+            .post(format!("https://seat.winterco.org/oauth/passthrough/{}", character_id))
+            .bearer_auth(token)
             .form(&request)
             .send()
             .await?
@@ -140,83 +201,201 @@ impl ESIRawClient {
     async fn process_verify(
         &self,
         access_token: &str,
-    ) -> Result<(i64, String, BTreeSet<String>), ESIError> {
-        #[derive(Debug, Deserialize)]
-        struct VerifyResponse {
-            #[serde(rename = "CharacterID")]
-            character_id: i64,
-            #[serde(rename = "CharacterName")]
-            character_name: String,
-            #[serde(rename = "Scopes")]
-            scopes: String,
+    ) -> Result<(i64, String, Vec<AccountInfo>, BTreeSet<String>, BTreeSet<String>, i64), jsonwebtoken::errors::Error> {
+        // #[derive(Debug, Deserialize)]
+        // struct VerifyResponse {
+        //     #[serde(rename = "CharacterID")]
+        //     character_id: i64,
+        //     #[serde(rename = "CharacterName")]
+        //     character_name: String,
+        //     #[serde(rename = "Scopes")]
+        //     scopes: String,
+        // }
+
+        // let result: VerifyResponse = self
+        //     .get("https://login.eveonline.com/oauth/verify", access_token)
+        //     .await?
+        //     .json()
+        //     .await?;
+        // let scopes = split_scopes(&result.scopes);
+        // Ok((result.character_id, result.character_name, scopes))
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Claims {
+            sub: String,
+            uid: String,
+            nam: String,
+            acct: Vec<AccountInfo>,
+            scp: BTreeSet<String>,
+            groups: BTreeSet<String>,
+            exp: i64,
         }
 
-        let result: VerifyResponse = self
-            .get("https://login.eveonline.com/oauth/verify", access_token)
-            .await?
-            .json()
-            .await?;
-        let scopes = split_scopes(&result.scopes);
-        Ok((result.character_id, result.character_name, scopes))
+        let mut novalid = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::RS256);
+        novalid.insecure_disable_signature_validation();
+
+        let msg = jsonwebtoken::decode::<Claims>(
+            &access_token,
+            &jsonwebtoken::DecodingKey::from_secret(b""),
+            &novalid,
+        )?;
+
+        let mut accounts = msg.claims.acct;
+        accounts.retain(|v| v.valid);
+
+        Ok((msg.claims.uid.parse::<i64>().unwrap(), msg.claims.nam, accounts, msg.claims.scp, msg.claims.groups, msg.claims.exp))
+    }
+
+    async fn process_verify_passthrough(
+        &self,
+        access_token: &str,
+    ) -> Result<(i64, String, BTreeSet<String>, i64), jsonwebtoken::errors::Error> {
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Claims {
+            sub: String,
+            name: String,
+            scp: BTreeSet<String>,
+            exp: i64
+        }
+
+        let mut novalid = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::RS256);
+        novalid.insecure_disable_signature_validation();
+
+        let msg = jsonwebtoken::decode::<Claims>(
+            &access_token,
+            &jsonwebtoken::DecodingKey::from_secret(b""),
+            &novalid,
+        )?;
+
+        let character_id_string = msg.claims.sub.rsplit_once(":").unwrap().1;
+
+        Ok((character_id_string.parse::<i64>().unwrap(), msg.claims.name, msg.claims.scp, msg.claims.exp))
     }
 
     pub async fn process_auth(
         &self,
         grant_type: &str,
         token: &str,
-        scopes: Option<&BTreeSet<String>>,
+        required_scopes: Option<&BTreeSet<String>>,
     ) -> Result<AuthResult, ESIError> {
-        let token = self.process_oauth_token(grant_type, token, scopes).await?;
-        let (character_id, name, scopes) = self.process_verify(&token.access_token).await?;
+        let token = self.process_oauth_token(grant_type, token).await?;
+        let (character_id, name, alts, scopes, groups, expires) = 
+            self.process_verify(&token.id_token.unwrap()).await?;
+        if required_scopes.is_some() {
+            let required_scopes = required_scopes.unwrap();
+            if !scopes.is_superset(&required_scopes) {
+                return Err(ESIError::MissingScope);
+            }
+        }
         Ok(AuthResult {
             character_id,
             character_name: name,
             access_token: token.access_token,
-            access_token_expiry: chrono::Utc::now()
-                + chrono::Duration::seconds(token.expires_in / 2),
+            access_token_expiry: chrono::DateTime::from_utc(
+                chrono::NaiveDateTime::from_timestamp(expires, 0),
+                chrono::Utc,
+            ) - chrono::Duration::seconds(60),
             refresh_token: token.refresh_token,
             scopes,
+            alt_ids: Some(alts),
+            groups: Some(groups)
         })
     }
 
-    pub async fn get(&self, url: &str, access_token: &str) -> Result<reqwest::Response, ESIError> {
-        Ok(self
-            .http
-            .get(url)
-            .bearer_auth(access_token)
-            .send()
-            .await?
-            .error_for_status()?)
+    pub async fn process_auth_passthrough(
+        &self,
+        character_id: i64,
+        token: &str,
+        scopes: Option<&BTreeSet<String>>,
+    ) -> Result<AuthResult, ESIError> {
+        let token = self.process_oauth_token_passthrough(character_id, token, scopes).await?;
+        let (character_id, name, scopes, expires) = self.process_verify_passthrough(&token.access_token).await?;
+        Ok(AuthResult {
+            character_id,
+            character_name: name,
+            access_token: token.access_token,
+            access_token_expiry: chrono::DateTime::from_utc(
+                chrono::NaiveDateTime::from_timestamp(expires, 0),
+                chrono::Utc,
+            ) - chrono::Duration::seconds(60),
+            refresh_token: None,
+            scopes,
+            alt_ids: None,
+            groups: None,
+        })
+    }
+
+    pub async fn get(&self, url: &str, access_token: Option<String>) -> Result<reqwest::Response, ESIError> {
+        match access_token {
+            Some(token) => 
+                Ok(self
+                    .http
+                    .get(url)
+                    .bearer_auth(&token)
+                    .send()
+                    .await?
+                    .error_for_status()?),
+            None =>
+                Ok(self
+                    .http
+                    .get(url)
+                    .send()
+                    .await?
+                    .error_for_status()?)
+        }
     }
 
     pub async fn delete(
         &self,
         url: &str,
-        access_token: &str,
+        access_token: Option<String>,
     ) -> Result<reqwest::Response, ESIError> {
-        Ok(self
-            .http
-            .delete(url)
-            .bearer_auth(access_token)
-            .send()
-            .await?
-            .error_for_status()?)
+
+        match access_token {
+            Some(token) => 
+                Ok(self
+                    .http
+                    .delete(url)
+                    .bearer_auth(&token)
+                    .send()
+                    .await?
+                    .error_for_status()?),
+            None =>
+                Ok(self
+                    .http
+                    .delete(url)
+                    .send()
+                    .await?
+                    .error_for_status()?)
+        }
     }
 
     pub async fn post<E: Serialize + ?Sized>(
         &self,
         url: &str,
         input: &E,
-        access_token: &str,
+        access_token: Option<String>,
     ) -> Result<reqwest::Response, ESIError> {
-        Ok(self
-            .http
-            .post(url)
-            .bearer_auth(access_token)
-            .json(input)
-            .send()
-            .await?
-            .error_for_status()?)
+
+        match access_token {
+            Some(token) => 
+                Ok(self
+                    .http
+                    .post(url)
+                    .json(input)
+                    .bearer_auth(&token)
+                    .send()
+                    .await?
+                    .error_for_status()?),
+            None =>
+                Ok(self
+                    .http
+                    .post(url)
+                    .json(input)
+                    .send()
+                    .await?
+                    .error_for_status()?)
+        }
     }
 }
 
@@ -229,35 +408,51 @@ impl ESIClient {
     }
 
     pub async fn process_authorization_code(&self, code: &str) -> Result<i64, ESIError> {
-        let mut result = self
+        let required_scopes = vec![
+            ESIScope::CAS_OpenID,
+            ESIScope::CAS_Accounts,
+            ESIScope::CAS_Groups,
+            ESIScope::CAS_Passthrough,
+            // ESIScope::PublicData,
+            ESIScope::Skills_ReadSkills_v1,
+            ESIScope::Clones_ReadImplants_v1,
+
+            ESIScope::Fleets_ReadFleet_v1,
+            ESIScope::Fleets_WriteFleet_v1,
+            ESIScope::UI_OpenWindow_v1,
+        ];
+
+        let required_scopes_str: BTreeSet<String> = required_scopes.iter().map(|s| s.as_str().to_owned()).collect();
+
+        let result = self
             .raw
-            .process_auth("authorization_code", code, None)
+            .process_auth("authorization_code", code, Some(&required_scopes_str))
             .await?;
 
-        if let Some(previous_token) = sqlx::query!(
-            "SELECT * FROM refresh_token WHERE character_id = $1",
-            result.character_id
-        )
-        .fetch_optional(self.db.as_ref())
-        .await?
-        {
-            let mut merged_scopes = result.scopes.clone();
-            for extra_scope in split_scopes(&previous_token.scopes) {
-                merged_scopes.insert(extra_scope);
-            }
+        // if let Some(previous_token) = sqlx::query!(
+        //     "SELECT * FROM refresh_token WHERE character_id = $1",
+        //     result.character_id
+        // )
+        // .fetch_optional(self.db.as_ref())
+        // .await?
+        // {
+        //     let mut merged_scopes = result.scopes.clone();
+        //     for extra_scope in split_scopes(&previous_token.scopes) {
+        //         merged_scopes.insert(extra_scope);
+        //     }
 
-            let second_attempt = match self
-                .raw
-                .process_auth("refresh_token", &result.refresh_token, Some(&merged_scopes))
-                .await
-            {
-                Ok(r) => r,
-                Err(ESIError::Status(400)) => result,
-                Err(e) => return Err(e),
-            };
+        //     let second_attempt = match self
+        //         .raw
+        //         .process_auth("refresh_token", &result.refresh_token, Some(&merged_scopes))
+        //         .await
+        //     {
+        //         Ok(r) => r,
+        //         Err(ESIError::Status(400)) => result,
+        //         Err(e) => return Err(e),
+        //     };
 
-            result = second_attempt;
-        }
+        //     result = second_attempt;
+        // }
 
         self.save_auth(&result).await?;
         Ok(result.character_id)
@@ -266,18 +461,93 @@ impl ESIClient {
     async fn save_auth(&self, auth: &super::esi::AuthResult) -> Result<(), sqlx::Error> {
         let mut tx = self.db.begin().await?;
 
-        if sqlx::query!("SELECT id FROM \"character\" WHERE id = $1", auth.character_id)
-            .fetch_optional(&mut tx)
-            .await?
-            .is_none()
-        {
+        
+        for character in auth.alt_ids.as_ref().unwrap() {
             sqlx::query!(
-                "INSERT INTO \"character\" (id, name) VALUES ($1, $2)",
-                auth.character_id,
-                auth.character_name
+                "DELETE FROM alt_character WHERE account_id = $1 OR alt_id = $1",
+                character.id,
             )
             .execute(&mut tx)
             .await?;
+
+            sqlx::query!(
+                "INSERT INTO \"character\" (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = $2",
+                character.id,
+                character.name
+            )
+            .execute(&mut tx)
+            .await?;
+
+        }
+
+        for character in auth.alt_ids.as_ref().unwrap() {
+
+            if auth.character_id != character.id {
+                sqlx::query!(
+                    "INSERT INTO alt_character (account_id, alt_id) VALUES ($1, $2)",
+                    auth.character_id,
+                    character.id,
+                )
+                .execute(&mut tx)
+                .await?;
+
+                sqlx::query!(
+                    "DELETE FROM admins WHERE character_id = $1",
+                    character.id,
+                )
+                .execute(&mut tx)
+                .await?;
+            }
+
+        }
+
+        macro_rules! maprole {
+            ($groups:ident, $group:expr, $role:expr) => (
+                if $groups.contains($group) {
+                    return Some($role);
+                }
+            );
+        }
+
+        match &auth.groups {
+            Some(groups) => {
+                let role = (|g: &BTreeSet<String>| {
+                    maprole!(g, "IT", "admin");
+                    maprole!(g, "Exec", "council");
+                    maprole!(g, "T2-FC", "fc-trainer");
+                    maprole!(g, "Junior-FC", "fc");
+                    maprole!(g, "[AUTO] 故土FC", "fc");
+                    None
+                })(groups);
+
+                match role {
+                    Some(role) => {
+                        sqlx::query!(
+                            "INSERT INTO admins (character_id, level) VALUES ($1, $2) ON CONFLICT (character_id) DO UPDATE SET level = $2",
+                            auth.character_id,
+                            role
+                        )
+                        .execute(&mut tx)
+                        .await?;
+                    },
+                    None => {
+                        sqlx::query!(
+                            "DELETE FROM admins WHERE character_id = $1",
+                            auth.character_id,
+                        )
+                        .execute(&mut tx)
+                        .await?;
+                    }
+                }
+            },
+            None => {
+                sqlx::query!(
+                    "DELETE FROM admins WHERE character_id = $1",
+                    auth.character_id,
+                )
+                .execute(&mut tx)
+                .await?;
+            }
         }
 
         let expiry_timestamp = auth.access_token_expiry.timestamp();
@@ -295,7 +565,7 @@ impl ESIClient {
         sqlx::query!(
             "INSERT INTO refresh_token (character_id, refresh_token, scopes) VALUES ($1, $2, $3) ON CONFLICT (character_id) DO UPDATE SET refresh_token = $2, scopes = $3",
             auth.character_id,
-            auth.refresh_token,
+            auth.refresh_token.as_ref().unwrap(),
             scopes,
         )
         .execute(&mut tx)
@@ -306,10 +576,24 @@ impl ESIClient {
         Ok(())
     }
 
-    async fn access_token_raw(
+    async fn access_token_idp(
         &self,
         character_id: i64,
     ) -> Result<(String, BTreeSet<String>), ESIError> {
+        let main_character_id = {
+            if let Some(record) = sqlx::query!(
+                "SELECT account_id FROM alt_character WHERE alt_id = $1",
+                character_id
+            )
+            .fetch_optional(self.db.as_ref())
+            .await?
+            {
+                record.account_id
+            } else {
+                character_id
+            }
+        };
+
         if let Some(record) = sqlx::query!(
             "SELECT * FROM access_token WHERE character_id = $1",
             character_id
@@ -324,7 +608,7 @@ impl ESIClient {
 
         let refresh = match sqlx::query!(
             "SELECT * FROM refresh_token WHERE character_id = $1",
-            character_id
+            main_character_id
         )
         .fetch_optional(self.db.as_ref())
         .await?
@@ -345,32 +629,111 @@ impl ESIClient {
         {
             Ok(r) => r,
             Err(ESIError::Status(400)) => {
-                warn!(
-                    "Deleting refresh token for character {} as it failed to be used: HTTP 400",
-                    character_id
-                );
-                let mut tx = self.db.begin().await?;
-                sqlx::query!(
-                    "DELETE FROM access_token WHERE character_id = $1",
-                    character_id
-                )
-                .execute(&mut tx)
-                .await?;
-                sqlx::query!(
-                    "DELETE FROM refresh_token WHERE character_id = $1",
-                    character_id
-                )
-                .execute(&mut tx)
-                .await?;
-                tx.commit().await?;
-
+                self.clear_access_tokens(main_character_id).await?;
                 return Err(ESIError::NoToken);
             }
             Err(e) => return Err(e),
         };
         self.save_auth(&refreshed).await?;
+        Ok((refreshed.access_token, refresh_scopes))
+    }
 
-        Ok((refreshed.access_token, refreshed.scopes))
+    async fn access_token_raw(
+        &self,
+        character_id: i64,
+    ) -> Result<(String, BTreeSet<String>), ESIError> {
+        if let Some(record) = sqlx::query!(
+            "SELECT * FROM access_token_esi WHERE character_id = $1",
+            character_id
+        )
+        .fetch_optional(self.db.as_ref())
+        .await?
+        {
+            if record.expires >= chrono::Utc::now().timestamp() {
+                return Ok((record.access_token, split_scopes(&record.scopes)));
+            }
+        }
+
+        let (access_token, refresh_scopes) = self
+            .access_token_idp(character_id)
+            .await?;
+
+        let passthroughed = match self
+            .raw
+            .process_auth_passthrough(
+                character_id, 
+                &access_token, 
+                Some(&refresh_scopes)
+            )
+            .await 
+        {
+            Ok(r) => {
+                let expiry_timestamp = r.access_token_expiry.timestamp();
+                let scopes = join_scopes(&r.scopes);
+                sqlx::query!(
+                    "INSERT INTO access_token_esi (character_id, access_token, expires, scopes) VALUES ($1, $2, $3, $4) ON CONFLICT (character_id) DO UPDATE SET access_token = $2, expires = $3, scopes = $4",
+                    r.character_id,
+                    r.access_token,
+                    expiry_timestamp,
+                    scopes,
+                )
+                .execute(self.db.as_ref())
+                .await?;
+                r
+            },
+            Err(ESIError::Status(400)) => {
+                // self.clear_access_tokens(main_character_id).await?;
+                return Err(ESIError::NoToken);
+            }
+            Err(e) => return Err(e),
+        };
+
+        Ok((passthroughed.access_token, passthroughed.scopes))
+    }
+
+    async fn clear_access_tokens(&self, account_id: i64) -> Result<(), ESIError> {
+        warn!(
+            "Deleting refresh token for character {} as it failed to be used: HTTP 400",
+            account_id
+        );
+        let mut tx = self.db.begin().await?;
+        sqlx::query!(
+            "DELETE FROM access_token WHERE character_id = $1",
+            account_id
+        )
+        .execute(&mut tx)
+        .await?;
+        sqlx::query!(
+            "DELETE FROM access_token_esi WHERE character_id = $1",
+            account_id
+        )
+        .execute(&mut tx)
+        .await?;
+        sqlx::query!(
+            "DELETE FROM refresh_token WHERE character_id = $1",
+            account_id
+        )
+        .execute(&mut tx)
+        .await?;
+
+        let alts = sqlx::query!(
+            "SELECT alt_id FROM alt_character WHERE account_id = $1",
+            account_id
+        ).fetch_all(&mut tx)
+        .await?;
+
+        for alt in alts {
+            sqlx::query!(
+                "DELETE FROM access_token_esi WHERE character_id = $1",
+                alt.alt_id
+            )
+            .execute(&mut tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+
+        Ok(())
     }
 
     async fn access_token(&self, character_id: i64, scope: ESIScope) -> Result<String, ESIError> {
@@ -387,22 +750,28 @@ impl ESIClient {
         &self,
         path: &str,
         character_id: i64,
-        scope: ESIScope,
+        scope: Option<ESIScope>,
     ) -> Result<D, ESIError> {
-        let access_token = self.access_token(character_id, scope).await?;
+        let access_token = match scope {
+            Some(scope) => Some(self.access_token(character_id, scope).await?),
+            None => None,
+        };
         let url = format!("https://esi.evetech.net{}", path);
-        Ok(self.raw.get(&url, &access_token).await?.json().await?)
+        Ok(self.raw.get(&url, access_token).await?.json().await?)
     }
 
     pub async fn delete(
         &self,
         path: &str,
         character_id: i64,
-        scope: ESIScope,
+        scope: Option<ESIScope>,
     ) -> Result<(), ESIError> {
-        let access_token = self.access_token(character_id, scope).await?;
+        let access_token = match scope {
+            Some(scope) => Some(self.access_token(character_id, scope).await?),
+            None => None,
+        };
         let url = format!("https://esi.evetech.net{}", path);
-        self.raw.delete(&url, &access_token).await?;
+        self.raw.delete(&url, access_token).await?;
         Ok(())
     }
 
@@ -411,12 +780,23 @@ impl ESIClient {
         path: &str,
         input: &E,
         character_id: i64,
-        scope: ESIScope,
+        scope: Option<ESIScope>,
     ) -> Result<(), ESIError> {
-        let access_token = self.access_token(character_id, scope).await?;
+        let access_token = match scope {
+            Some(scope) => Some(self.access_token(character_id, scope).await?),
+            None => None,
+        };
         let url = format!("https://esi.evetech.net{}", path);
-        self.raw.post::<E>(&url, input, &access_token).await?;
+        self.raw.post::<E>(&url, input, access_token).await?;
         Ok(())
+    }
+
+    pub async fn check(&self, account_id: i64) -> bool {
+        let result = self.access_token_idp(account_id).await;
+        match result {
+            Ok(_) => true,
+            Err(_) => false,
+        }
     }
 }
 
@@ -444,7 +824,7 @@ pub mod fleet_members {
             .get(
                 &format!("/v1/fleets/{}/members", fleet_id),
                 boss_id,
-                ESIScope::Fleets_ReadFleet_v1,
+                Some(ESIScope::Fleets_ReadFleet_v1),
             )
             .await?)
     }

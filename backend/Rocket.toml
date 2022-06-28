@@ -1,5 +1,5 @@
 [global]
-port = 15619
+port = 15618
 
 [release]
 address = "127.0.0.1"

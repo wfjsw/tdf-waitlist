@@ -1,14 +1,16 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { AuthContext } from "../contexts";
+import { AuthContext, WaitlistContext } from "../contexts";
 import logoImage from "./logo.png";
 import styled from "styled-components";
-import { InputGroup, Select, NavButton /*, AButton*/ } from "../Components/Form";
+import { InputGroup, Select, NavButton, AButton } from "../Components/Form";
 import { EventNotifier } from "../Components/Event";
 import { ThemeSelect } from "../Components/ThemeSelect";
-// import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-// import { faDiscord } from "@fortawesome/free-brands-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faRotate, faBug } from "@fortawesome/pro-solid-svg-icons";
+// import { faDiscord } from "@fortawesome/pro-brands-svg-icons";
 import { NavLinks, MobileNavButton, MobileNav } from "./Navigation";
+import { useTranslation } from 'react-i18next';
 
 const NavBar = styled.div`
   display: flex;
@@ -33,10 +35,12 @@ NavBar.LogoLink = styled(NavLink).attrs((props) => ({
   }
 `;
 NavBar.Logo = styled.img`
-  width: 150px;
+  width: 75px;
+  image-rendering: pixelated;
   filter: ${(props) => props.theme.logo.filter};
   @media (max-width: 480px) {
     margin-left: 0.5em;
+    width: 40px;
   }
 `;
 NavBar.Menu = styled.div`
@@ -73,17 +77,17 @@ NavBar.Main = styled.div`
   }
 `;
 
-export function Menu({ onChangeCharacter, theme, setTheme }) {
+export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme }) {
+  const { t } = useTranslation();
   const [isOpenMobileView, setOpenMobileView] = React.useState(false);
   return (
     <AuthContext.Consumer>
       {(whoami) => (
         <NavBar>
-          <MobileNavButton isOpen={isOpenMobileView} setIsOpen={setOpenMobileView} />
-          <NavBar.LogoLink to="/">
-            <NavBar.Logo src={logoImage} alt="The Ditanian Fleet" />
-          </NavBar.LogoLink>
-
+            <MobileNavButton isOpen={isOpenMobileView} setIsOpen={setOpenMobileView} />
+            <NavBar.LogoLink to="/">
+              <NavBar.Logo src={logoImage} alt="Winter Coalition" />
+            </NavBar.LogoLink>
           <NavBar.Menu>
             <NavBar.Main>
               <NavLinks whoami={whoami} />
@@ -91,6 +95,25 @@ export function Menu({ onChangeCharacter, theme, setTheme }) {
             <NavBar.End>
               {whoami && (
                 <>
+                  <WaitlistContext.Consumer>
+                    {(waitlists) => waitlists && (
+                      <InputGroup style={{ marginRight: "2em" }}>
+                        <Select
+                          value={waitlists.active}
+                          onChange={(evt) =>
+                            onChangeWaitlist && onChangeWaitlist(parseInt(evt.target.value))
+                          }
+                        >
+                          {waitlists.available.map((wl) => (
+                            <option key={wl.id} value={wl.id}>
+                              {wl.name} {wl.open ? '🟢' : '🔴' }
+                            </option>
+                          ))}
+                        </Select>
+                      </InputGroup>
+                    )}
+                  </WaitlistContext.Consumer>
+
                   <InputGroup style={{ marginRight: "2em" }}>
                     <Select
                       value={whoami.current.id}
@@ -104,8 +127,8 @@ export function Menu({ onChangeCharacter, theme, setTheme }) {
                         </option>
                       ))}
                     </Select>
-                    <NavButton exact to="/auth/start/alt">
-                      +
+                    <NavButton exact to="/auth/start">
+                      <FontAwesomeIcon icon={faRotate} />
                     </NavButton>
                   </InputGroup>
                 </>
@@ -116,15 +139,19 @@ export function Menu({ onChangeCharacter, theme, setTheme }) {
                 </AButton> */}
                 <EventNotifier />
                 <ThemeSelect theme={theme} setTheme={setTheme} />
+                <AButton title="ReportBug" href="https://jira.winterco.org/projects/WAITLIST/issues" target="_blank">
+                  <FontAwesomeIcon icon={faBug} />
+                </AButton>
                 {whoami ? (
                   <NavButton exact to="/auth/logout" variant="secondary">
-                    Log out
+                    {t("logout")}
                   </NavButton>
                 ) : (
                   <NavButton exact to="/auth/start" variant="primary">
-                    Log in
+                    {t('login')}
                   </NavButton>
                 )}
+              
               </InputGroup>
             </NavBar.End>
             <MobileNav isOpen={isOpenMobileView} whoami={whoami} />

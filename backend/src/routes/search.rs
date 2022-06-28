@@ -23,7 +23,10 @@ async fn query(
 
     let search_like = format!("%{}%", query);
     let results = sqlx::query!(
-        "SELECT id, name FROM \"character\" WHERE name LIKE $1",
+        "SELECT id, name, COALESCE(\"alt_character\".account_id, id) AS account_id
+        FROM \"character\" 
+        LEFT JOIN \"alt_character\" ON id = \"alt_character\".alt_id 
+        WHERE name ILIKE $1 LIMIT 25",
         search_like
     )
     .fetch_all(app.get_db())
@@ -32,6 +35,7 @@ async fn query(
     .map(|r| Character {
         id: r.id,
         name: r.name,
+        account_id: r.account_id,
     })
     .collect();
 

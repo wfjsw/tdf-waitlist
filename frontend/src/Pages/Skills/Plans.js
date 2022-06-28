@@ -5,7 +5,7 @@ import _ from "lodash";
 import { Content, PageTitle } from "../../Components/Page";
 import { Table, Row, Cell, TableHead, TableBody, CellHead } from "../../Components/Table";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck, faPaste } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faPaste } from "@fortawesome/pro-solid-svg-icons";
 import { Button, Buttons } from "../../Components/Form";
 import { Row as GridRow, Col } from "react-awesome-styled-grid";
 

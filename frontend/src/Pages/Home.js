@@ -1,12 +1,18 @@
-import { Content } from "../Components/Page";
+import { Content, PageTitle } from "../Components/Page";
 // import { NavLink } from "react-router-dom";
 // import { NavButton } from "../Components/Form";
+import { useTranslation } from "react-i18next";
 
 export function Home() {
+  const { t } = useTranslation();
   return (
     <>
       <Content>
-        <h2>🐷 🚩</h2>
+        <PageTitle>{t("title")}</PageTitle>
+        <p>Report bugs/issues here: <a href="https://jira.winterco.org/projects/WAITLIST/issues/">WinterCo. JIRA - Project Waitlist</a></p>
+
+        <p>The site is a modified fork of the TDF waitlist tool. Original code was released under MIT licence and is available at <a href="https://github.com/the-ditanian-fleet/waitlist/">the-ditanian-fleet/waitlist</a></p>
+
         {/* <h2>Welcome to The Ditanian Fleet</h2>
         <p>
           Hello capsuleers, we would like to introduce you to the EVE Online incursion community

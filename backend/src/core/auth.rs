@@ -37,7 +37,7 @@ struct AuthToken {
     account_id: i64,
 }
 
-pub struct CookieSetter(pub String, pub bool);
+pub struct CookieSetter(pub String, pub bool, pub Option<String>);
 impl<'r> rocket::response::Responder<'r, 'static> for CookieSetter {
     fn respond_to(self, _: &'r rocket::request::Request<'_>) -> rocket::response::Result<'static> {
         // XXX: Secure is set via a parameter in CookieSetter, but we can get this from the App
@@ -50,6 +50,11 @@ impl<'r> rocket::response::Responder<'r, 'static> for CookieSetter {
             cookie += "; Secure";
         }
         response.set_header(Header::new("Set-Cookie", cookie));
+
+        if let Some(redirect_to) = self.2 {
+            response.set_status(Status::Found);
+            response.set_header(Header::new("Location", redirect_to));
+        }
         Ok(response)
     }
 }
@@ -73,7 +78,7 @@ fn decode_token(token: &str, secret: &[u8]) -> Result<AuthToken, AuthenticationE
     Ok(decoded)
 }
 
-pub fn create_cookie(app: &crate::app::Application, account_id: i64) -> CookieSetter {
+pub fn create_cookie(app: &crate::app::Application, account_id: i64, redirect_to: Option<String>) -> CookieSetter {
     let mut branca = Branca::new(&app.token_secret).unwrap();
 
     let token = AuthToken {
@@ -83,7 +88,7 @@ pub fn create_cookie(app: &crate::app::Application, account_id: i64) -> CookieSe
 
     let payload = rmp_serde::to_vec_named(&token).unwrap();
     let encoded = branca.encode(&payload).unwrap();
-    CookieSetter(encoded, app.config.esi.url.starts_with("https:"))
+    CookieSetter(encoded, app.config.esi.url.starts_with("https:"), redirect_to)
 }
 
 #[rocket::async_trait]
@@ -105,6 +110,11 @@ impl<'r> FromRequest<'r> for AuthenticatedAccount {
                 Err(e) => return Outcome::Failure((Status::Unauthorized, e)),
             },
         };
+        
+        let valid_token = app.esi_client.check(token.account_id).await;
+        if !valid_token {
+            return Outcome::Failure((Status::Unauthorized, AuthenticationError::InvalidToken));
+        }
 
         let access_level = match sqlx::query!(
             "SELECT * FROM admins WHERE character_id = $1",

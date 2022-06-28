@@ -9,7 +9,7 @@ import { Title } from "../../Components/Page";
 import { Note } from "../../Components/NoteBox";
 import { Shield } from "../../Components/Badge";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faExclamationCircle } from "@fortawesome/free-solid-svg-icons";
+import { faExclamationCircle } from "@fortawesome/pro-solid-svg-icons";
 
 const FitCard = styled.div`
   border: solid 2px ${(props) => props.theme.colors[props.variant].color};

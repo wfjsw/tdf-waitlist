@@ -1,0 +1,2024 @@
+{
+  "db": "PostgreSQL",
+  "03a7d7c72d1a87fdc8a7138a31804627b08e623caaf365f80c85422251c9fc27": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "is_open",
+          "ordinal": 2,
+          "type_info": "Bool"
+        },
+        {
+          "name": "is_archived",
+          "ordinal": 3,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Bool"
+        ]
+      }
+    },
+    "query": "SELECT id, name, is_open, is_archived FROM waitlist WHERE is_archived = $1 ORDER BY id"
+  },
+  "04b5f677c5c59ba146ebd652fb04ede917e2aa599b44dc6c54d4e0172dc3dee7": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO character_note (author_id, character_id, note, logged_at) VALUES ($1, $2, $3, $4)"
+  },
+  "0ea1cf82eeb3b945758a2b2cee1f539f76c76b7e8748ff56b7b6c2d6fd5f4e2b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT id FROM fitting WHERE dna = $1"
+  },
+  "113c708ce7977080c34a41e114bc977a2d0ed8c9edc6b4ff1eb2d50cb3e214ef": {
+    "describe": {
+      "columns": [
+        {
+          "name": "character_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "refresh_token",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "scopes",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM refresh_token WHERE character_id = $1"
+  },
+  "13a4d32a061c1fe57a1f45d40103a6ee3e172d2758b4c8e9b8b35fb6914e5441": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM waitlist_entry_fit WHERE entry_id = $1"
+  },
+  "15be5c1cc1e6ca193b726b67ec8ddf7664dbb5da0eec5e1be5d6b9121f01769f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "author_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "author_name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "note",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "logged_at",
+          "ordinal": 3,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT author_id, author.name author_name, note, logged_at FROM character_note\n            JOIN \"character\" author ON author.id = author_id\n            WHERE character_id = $1\n        "
+  },
+  "17c9adffb57a3f2ed2e785625bcccfabd25fb908538be3a74f4068df7a4396f6": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO fleet (id, boss_id, is_updating) VALUES ($1, $2, true) ON CONFLICT (id) DO UPDATE SET boss_id = $2, is_updating = true"
+  },
+  "1a094050f1cc5c8063e08205a1f847cdf879a5c2648a1cd314c37e5a5c7c6efe": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT name FROM \"character\" WHERE id = $1"
+  },
+  "1c6f069385bf9242ef10186d97814649ae914375231f3e398e1677ce007100af": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Int8",
+          "Varchar",
+          "Bool",
+          "Varchar",
+          "Int8",
+          "Text",
+          "Int8",
+          "Bool"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO waitlist_entry_fit (character_id, entry_id, fit_id, category, approved, tags, implant_set_id, fit_analysis, cached_time_in_fleet, is_alt)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n        "
+  },
+  "1cb48486b2cfb6c5edf9637c833937dd6a0d0bb9ec0e4529922b79fe3c0708d7": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM waitlist_entry_fit WHERE id = $1"
+  },
+  "2252790bd2db7d505b0e4c62fb21b994dcf7963ab29969a4e09e34bd8973fdfb": {
+    "describe": {
+      "columns": [
+        {
+          "name": "entry_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "waitlist_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT entry_id, waitlist_id FROM waitlist_entry_fit wef\n            JOIN waitlist_entry we ON we.id=wef.entry_id WHERE wef.id=$1\n        "
+  },
+  "2501622a6f8d32e5da63cb539093e653deaf6108c8fbe5591711b34fc7f0f58d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM refresh_token WHERE character_id = $1"
+  },
+  "3981df93d7f0db983b2247e5aea5db3544c92481a0f952c5698aba45acf63c1c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM waitlist_entry WHERE id = $1"
+  },
+  "3bb4afc987dda0811cd27df0b59aa47f8fe653b295b443ed7558e551b91c488c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "account_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "entry_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "waitlist_id",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT account_id, entry_id, waitlist_id FROM waitlist_entry_fit wef\n            JOIN waitlist_entry we ON wef.entry_id=we.id\n            WHERE wef.id=$1\n        "
+  },
+  "40ee515136f46820a83e169183e3e16307b82894ee952cb888e2480d55f80471": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE fleet SET is_updating = false WHERE id = $1"
+  },
+  "426a0f92c1109f458bca8b8d2400edf229c8944fb759c4e1e4352d5ce5f8ece1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "character_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "character_name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "level",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\n        SELECT character_id, name AS character_name, level\n        FROM admins JOIN \"character\" ON admins.character_id = \"character\".id\n        ORDER BY \"character\".name ASC\n        "
+  },
+  "42f03fb82b391340dcc7123b6e0fa6087298c933191cc5d5fee177b1112626d8": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id FROM waitlist WHERE id = $1 AND is_open = true"
+  },
+  "445470e8001e03750ef8fc296c2f6825c21663630f4c2b4aa4f4c26d3198c44c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "one",
+          "ordinal": 0,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT 1 \"one\""
+  },
+  "46db7ef3115c02369cc9b4d3cfbef4415034092f33403467b902834467a3d185": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "DELETE FROM waitlist_entry WHERE id NOT IN (SELECT entry_id FROM waitlist_entry_fit)"
+  },
+  "49c3cf56548615debaca35df4dae939a2a35a0c276c8bdf912abef86aa845178": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE fleet_activity SET has_left = true, last_seen = $1 WHERE id = $2"
+  },
+  "4f5272b7dcbe594611cdcd38d6e214ed4c952938e36980091f8c27309db8211d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "character_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "fleet_id",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "first_seen",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "last_seen",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "hull",
+          "ordinal": 5,
+          "type_info": "Int4"
+        },
+        {
+          "name": "has_left",
+          "ordinal": 6,
+          "type_info": "Bool"
+        },
+        {
+          "name": "is_boss",
+          "ordinal": 7,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM fleet_activity WHERE fleet_id = $1 AND has_left = false"
+  },
+  "4f9eadfd0bb47760547c044b6a7769b84ffe75c5526a1a74428e19b57a06cf71": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Int8",
+          "Int8",
+          "Bool",
+          "Int4"
+        ]
+      }
+    },
+    "query": "INSERT INTO fleet_activity (character_id, fleet_id, first_seen, last_seen, is_boss, hull, has_left) VALUES ($1, $2, $3, $4, $5, $6, false)"
+  },
+  "517868f652c1c3afee4c1b0023f4af8e04bc9422c352c16a142eb387098f0ad3": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM access_token WHERE character_id = $1"
+  },
+  "528bbbf9bc339c714205c336b43962e05245400e84f5ccd600ee2906b6b099a4": {
+    "describe": {
+      "columns": [
+        {
+          "name": "hull",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "first_seen",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "last_seen",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT hull, first_seen, last_seen FROM fleet_activity WHERE character_id = $1 ORDER BY first_seen DESC"
+  },
+  "570feb0b875c8e0b5a136f896af2e8dd6b2ed3cdfe202373f502f2f88a62a624": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT id FROM implant_set WHERE implants = $1"
+  },
+  "5841efb71c352ab1d8ad6761598eaa047ae28d38dd3bc8ca77377913d5712410": {
+    "describe": {
+      "columns": [
+        {
+          "name": "fleet_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "hull",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "first_seen",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "last_seen",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "character_id",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "is_boss",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "character_name",
+          "ordinal": 6,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT fleet_id, hull, first_seen, last_seen, character_id, is_boss, \"character\".name AS character_name\n            FROM fleet_activity JOIN \"character\" ON character_id=\"character\".id\n            WHERE first_seen <= $1 AND last_seen >= $2\n        "
+  },
+  "5b6e037eea30d41be1ef504d6e59c809d00afa1739c51b12fd3c29b565ec53b2": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE waitlist_entry_fit SET approved=false, review_comment = $1 WHERE id = $2"
+  },
+  "5da6cd2fe215516beb122614ab7b189b1709e78e72368441d66a1e297197035f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE fleet_activity SET last_seen = $1 WHERE id = $2"
+  },
+  "61b5916fe20642ce6dfedfa5e86697be63862f4db47021e1a970d2a5b789279f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "character_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT character_id FROM refresh_token"
+  },
+  "62d20232eefaff6d279d11b31ac82da0c141a19811858e4ef1ff31ae79917a2b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM alt_character WHERE account_id = $1 OR alt_id = $1"
+  },
+  "62eff4adea3c961c97ea2e1ad318f1d03542cd9b11864dccaa8cf1c06cedad1b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "count!",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT COUNT(*) \"count!\" FROM waitlist_entry_fit WHERE entry_id = $1"
+  },
+  "6432e9bb2b37dc144cf590157aed3f6a42622f00f0b3fa817a114f8cf327bfef": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Bool",
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE waitlist SET is_open= $1 WHERE id=$2"
+  },
+  "65d8843f84e9434ac229a016f2af05181ecb0405384bde8b5748dbb5aad2079b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM waitlist_entry WHERE waitlist_id = $1"
+  },
+  "686d47818436ae469918b1f95d3fd74d0267bb195ec4c0c1c446f2c1f97625c9": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Int8",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO fleet_squad (fleet_id, wing_id, squad_id, category) VALUES ($1, $2, $3, $4)"
+  },
+  "6f7d67230733d88313df30535bf0b99ba25eeb49f5f96a70ac3f82e2c86a96c5": {
+    "describe": {
+      "columns": [
+        {
+          "name": "character_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "access_token",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "expires",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "scopes",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM access_token_esi WHERE character_id = $1"
+  },
+  "70795496278d23dac89abd51c4e6080026861f88388647aa9f3a20e02b1cc27b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM alt_character WHERE account_id = $1 OR alt_id = $2"
+  },
+  "70d8df52fd45a5c7e8e0bf4e472ab9a39e2b459a15748ab86e61d2c34061fd71": {
+    "describe": {
+      "columns": [
+        {
+          "name": "squad_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "category",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT squad_id, category FROM fleet_squad WHERE fleet_id = $1"
+  },
+  "711fd1f3754f1c290e1159b13252c40bad5f61420215f7c2fb6249df9ea1639c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM fleet WHERE id = $1"
+  },
+  "7c115ed6944ab3f06c64d9d7fd8a7136f76008199f4111d55a388f2638ff3ccd": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO fit_history (character_id, fit_id, implant_set_id, logged_at) VALUES ($1, $2, $3, $4)"
+  },
+  "7cac24f12646f10f3ae6455736512898c51fae94e34ceb95b74f55684c6e1c3f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM access_token_esi WHERE character_id = $1"
+  },
+  "822d48e6cf91815d5ad6274e8784879309db78428bb84a80b9c67c6ce7a0c22f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "character_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "skill_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "level",
+          "ordinal": 2,
+          "type_info": "Int2"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM skill_current WHERE character_id = $1"
+  },
+  "82dd18d3e170672ab65db38afa92cbb621a7175870ebfe465134fbc963b144fd": {
+    "describe": {
+      "columns": [
+        {
+          "name": "character_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "level",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM admins WHERE character_id = $1"
+  },
+  "82e3e2b3e9902591d90629846dd6bc0bcb278ea50536cdc051e55766d7aeadfc": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "boss_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "is_updating",
+          "ordinal": 2,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM fleet WHERE id = $1"
+  },
+  "8b33eb6a774ecc73c6a4eb89501556f0039a496fac8dc8d128afc5aa901c486e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "level",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT level FROM admins WHERE character_id = $1"
+  },
+  "9071abe2b1a45d433298c3ffaf7c027b1bc8740df8ba07c540c5615920950d58": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO \"character\" (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = $2"
+  },
+  "91b10f160080efda87ec0282c598ae6844a543bdfca007a07588f0d3097bd996": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id, name FROM \"character\" WHERE id = $1"
+  },
+  "94d49afb04eb8c28e88c5738508729c72b20e21917ecf606cfe71044bbb03f0c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "boss_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT fleet.id, boss_id, name FROM fleet JOIN \"character\" ON fleet.boss_id = \"character\".id WHERE fleet.is_updating = true"
+  },
+  "99e90dab6d4c917117ca4b338afd7fbbac43856307556f30921073f7b80bda66": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE fleet_activity SET has_left = true WHERE id = $1"
+  },
+  "9a5cfefe19e6c56d8c806b599d44443a9aece488a4540fdb41b03ea191b2951b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Text",
+          "Int8",
+          "Text"
+        ]
+      }
+    },
+    "query": "INSERT INTO access_token (character_id, access_token, expires, scopes) VALUES ($1, $2, $3, $4) ON CONFLICT (character_id) DO UPDATE SET access_token = $2, expires = $3, scopes = $4"
+  },
+  "9e2e81d84804e8973e7f2b0f8a7ef0cf2d0c036b3cb63f5904e840f7fe876be0": {
+    "describe": {
+      "columns": [
+        {
+          "name": "alt_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT alt_id FROM alt_character WHERE account_id = $1"
+  },
+  "9e3dc438f92d3a3d774169adda5c4911ab669a7208308d6520fa35088274a92e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO alt_character (account_id, alt_id) VALUES ($1, $2)"
+  },
+  "a32a6ef06bd936dea6d40ce3626e53dd2efddb2e5f923ef03602648612b639ed": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id FROM waitlist_entry WHERE account_id = $1 AND waitlist_id = $2"
+  },
+  "a3dcd30606bd986b1e0863e47601bf511e415705b27df8d565cc0f4f88e19f9e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Timestamp"
+        ]
+      }
+    },
+    "query": "DELETE FROM ban WHERE expires_at < $1"
+  },
+  "a977131623a7a57d3efac59565e05bfa87f06cc33b0e76fd8924792fbd47d866": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "waitlist_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "account_id",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id, waitlist_id, account_id FROM waitlist_entry WHERE id = $1"
+  },
+  "a9836524076208e8a13c6e00cfa50c2eaa3f0a94455070ce69325c89d8fb384a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "UPDATE waitlist_entry_fit SET approved=true WHERE id=$1"
+  },
+  "ab7fcd4ca6055c178ce2b0c59e4ec5ac7a4674a135a6d48bb5528155701accf6": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM waitlist_entry WHERE id=$1"
+  },
+  "af8471dcea20dd0a0274b1eaa20d2ff5b6e2f1f634fcc39636b4b1c24b0fee7d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4",
+          "Int2"
+        ]
+      }
+    },
+    "query": "INSERT INTO skill_current (character_id, skill_id, level) VALUES ($1, $2, $3) ON CONFLICT (character_id, skill_id) DO UPDATE SET level = $3"
+  },
+  "b2d2e8509dae1e04e70430001d569fca3500b0592d521cbb0a9be75ce728cf5c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM waitlist_entry_fit WHERE character_id = $1"
+  },
+  "b2f9ef940e52344f47d638343f5d354aed7ed319b04c439f8b8fa06a3bef651c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "character_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "skill_id",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "old_level",
+          "ordinal": 3,
+          "type_info": "Int2"
+        },
+        {
+          "name": "new_level",
+          "ordinal": 4,
+          "type_info": "Int2"
+        },
+        {
+          "name": "logged_at",
+          "ordinal": 5,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM skill_history WHERE character_id = $1 ORDER BY id DESC"
+  },
+  "b777efdf9044d82fc84a768bcf4ab787b0d5a1a133c3cb1d42a57806d05ad73f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Varchar",
+          "Int8",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO access_token_esi (character_id, access_token, expires, scopes) VALUES ($1, $2, $3, $4) ON CONFLICT (character_id) DO UPDATE SET access_token = $2, expires = $3, scopes = $4"
+  },
+  "b7eb901476882c611cc6c14a2d8b4d71ac76330e1305b2b08346caf0998bdf62": {
+    "describe": {
+      "columns": [
+        {
+          "name": "boss_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT boss_id FROM fleet WHERE id = $1 AND is_updating = true"
+  },
+  "b8d3b10249a45a8ff4658139939d45dfd8e0da2e6032f2c7f0b5209f6835429f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4",
+          "Int2",
+          "Int2",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO skill_history (character_id, skill_id, old_level, new_level, logged_at) VALUES ($1, $2, $3, $4, $5)"
+  },
+  "b9bbded7e415b8d43e69652815282940a0f1d21968be3999055b5ec50618db28": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM fleet_squad WHERE fleet_id = $1"
+  },
+  "bb8b9bd6ac87a925daa3d5f4788bdb7375bf56b6469e9475e595927908125162": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "INSERT INTO refresh_token (character_id, refresh_token, scopes) VALUES ($1, $2, $3) ON CONFLICT (character_id) DO UPDATE SET refresh_token = $2, scopes = $3"
+  },
+  "be5f79d28b82379c6c25b759551006d4b6d6c694b38a7a33324dff846c049b0f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Int8",
+          "Timestamp",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO ban (kind, id, expires_at, added_by) VALUES ($1, $2, $3, $4) ON CONFLICT (kind, id) DO UPDATE SET expires_at = $3, added_by = $4"
+  },
+  "bf6dd3da79d0474c4c2796675c7b2d5c6ebb48f6082f2fb7b435afa6c5ea4298": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM admins WHERE character_id = $1"
+  },
+  "c1b72ef9bfa113b895cc8a948a2b8c1e56cd4f44800b6e666e829617031fb497": {
+    "describe": {
+      "columns": [
+        {
+          "name": "dna",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hull",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "implants",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "logged_at",
+          "ordinal": 3,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n        SELECT dna, hull, implants, logged_at FROM fit_history\n        JOIN fitting ON fit_history.fit_id=fitting.id\n        JOIN implant_set ON fit_history.implant_set_id=implant_set.id\n        WHERE character_id = $1\n        ORDER BY fit_history.id DESC\n    "
+  },
+  "c2a71a8e5b7379eb03007f68c3e1c58b2f66681722c83a385eed0d7d27abf9f1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "we_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "we_joined_at",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "we_account_id",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "wef_id",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "wef_approved",
+          "ordinal": 4,
+          "type_info": "Bool"
+        },
+        {
+          "name": "wef_category",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "wef_cached_time_in_fleet",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "wef_review_comment",
+          "ordinal": 7,
+          "type_info": "Text"
+        },
+        {
+          "name": "wef_tags",
+          "ordinal": 8,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "wef_fit_analysis",
+          "ordinal": 9,
+          "type_info": "Text"
+        },
+        {
+          "name": "wef_is_alt",
+          "ordinal": 10,
+          "type_info": "Bool"
+        },
+        {
+          "name": "char_wef_id",
+          "ordinal": 11,
+          "type_info": "Int8"
+        },
+        {
+          "name": "char_wef_name",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "char_we_id",
+          "ordinal": 13,
+          "type_info": "Int8"
+        },
+        {
+          "name": "char_we_name",
+          "ordinal": 14,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "fitting_dna",
+          "ordinal": 15,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "fitting_hull",
+          "ordinal": 16,
+          "type_info": "Int4"
+        },
+        {
+          "name": "implant_set_implants",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT\n                we.id we_id,\n                we.joined_at we_joined_at,\n                we.account_id we_account_id,\n                wef.id wef_id,\n                wef.approved wef_approved,\n                wef.category wef_category,\n                wef.cached_time_in_fleet wef_cached_time_in_fleet,\n                wef.review_comment wef_review_comment,\n                wef.tags wef_tags,\n                wef.fit_analysis wef_fit_analysis,\n\t\t\t\twef.is_alt wef_is_alt,\n                char_wef.id char_wef_id,\n                char_wef.name char_wef_name,\n                char_we.id char_we_id,\n                char_we.name char_we_name,\n                fitting.dna fitting_dna,\n                fitting.hull fitting_hull,\n                implant_set.implants implant_set_implants\n                FROM waitlist_entry_fit wef\n            JOIN waitlist_entry we ON wef.entry_id = we.id\n            JOIN \"character\" char_wef ON wef.character_id = char_wef.id\n            JOIN \"character\" char_we ON we.account_id = char_we.id\n            JOIN fitting ON wef.fit_id = fitting.id\n            JOIN implant_set ON wef.implant_set_id = implant_set.id\n            WHERE we.waitlist_id = $1\n            ORDER BY we.id ASC, wef.id ASC\n        "
+  },
+  "d221eb50c2629ab68baf074892cd9960e9a591a6b7bc3844c1674d00059c8ff9": {
+    "describe": {
+      "columns": [
+        {
+          "name": "character_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "access_token",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "expires",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "scopes",
+          "ordinal": 3,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT * FROM access_token WHERE character_id = $1"
+  },
+  "d55a013ea23d99b69745e9a0a46b98e76650273c37764c4dd0b55307344f498c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "kind",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "expires_at",
+          "ordinal": 2,
+          "type_info": "Timestamp"
+        },
+        {
+          "name": "added_by",
+          "ordinal": 3,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id, kind, expires_at, added_by FROM ban ORDER BY kind ASC, id ASC"
+  },
+  "d6a0c7a792cd2c3e070494eeeb82dca8d805bf6a73b419e47acc1b4c2ed5d960": {
+    "describe": {
+      "columns": [
+        {
+          "name": "is_open",
+          "ordinal": 0,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT is_open FROM waitlist WHERE id = $1"
+  },
+  "d830c38ee514c17674490e8ab72f7d7d23eac09c438511d4e46aba6451f30a04": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            DELETE FROM waitlist_entry_fit\n            WHERE entry_id IN (SELECT id FROM waitlist_entry WHERE waitlist_id=$1)\n        "
+  },
+  "de580bc2cd932822f5bc2a611d8beac666b78ce05772485859fc5fb2fd0f926c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id, name FROM alt_character JOIN \"character\" ON alt_character.alt_id = \"character\".id WHERE account_id = $1"
+  },
+  "df53af624fe3cb5f134ab0ba49f56d43a95f16d5901623cfd351346cba110fae": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO implant_set (implants) VALUES ($1) RETURNING id"
+  },
+  "dfca1a1eb2cd6206b58ea24d99a8606466f9244bddaf81e74077d0758377810d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM ban WHERE kind = $1 AND id = $2"
+  },
+  "e48a10a33d9a470e4075ecb142c6103e1365614ed8582286acbbee8c91d9c0ac": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT id, name FROM \"character\" WHERE name ILIKE $1 LIMIT 25"
+  },
+  "e6e6207115318119e3b58e65a2aff38df64011ca54e7693a6d9f39fb79469313": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT id FROM fleet"
+  },
+  "e9613e08140142d8edcb40be057ccb1f3ec2dd9656523d320293276795ccb444": {
+    "describe": {
+      "columns": [
+        {
+          "name": "account_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT account_id FROM alt_character WHERE alt_id = $1"
+  },
+  "ec37b1e833f501ccf3d88b297a31db8329a1956f4141f6ecbf8fd01227f747af": {
+    "describe": {
+      "columns": [
+        {
+          "name": "fleet_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "squad_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "wing_id",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            SELECT fleet_id, squad_id, wing_id FROM fleet\n            JOIN fleet_squad ON fleet.id=fleet_squad.fleet_id\n            WHERE boss_id = $1 AND category = $2\n        "
+  },
+  "ec7f164b45aa7b0b768acf47362db2ee5f7dfb2e0c20e003780c12d6edb18cf6": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4",
+          "Int2",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO skill_history (character_id, skill_id, old_level, new_level, logged_at) VALUES ($1, $2, 0, $3, $4)"
+  },
+  "f447e4ec4a2212c12545c2dfdd8925f9e087524c8d9a71a0d0e7d056ca01bd2a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Int4"
+        ]
+      }
+    },
+    "query": "INSERT INTO fitting (dna, hull) VALUES ($1, $2) RETURNING id"
+  },
+  "f51dfc5af6670442426376d605013ff5c0556de87f847d1998316d6a2f350987": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        SELECT waitlist_entry_fit.id FROM waitlist_entry_fit JOIN fitting ON fit_id=fitting.id WHERE character_id = $1 AND hull = $2\n        "
+  },
+  "f62cc96f829afd6723fb9da191dc0cf14d0da6775912844098636daad08b752c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "alt_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT alt_id FROM alt_character WHERE account_id = $1 AND alt_id = $2"
+  },
+  "f6f1f59085d12b5042982917af88b6beb8a695bc025cb9d56422ab6466de95a0": {
+    "describe": {
+      "columns": [
+        {
+          "name": "wef_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "wef_category",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "wef_character_id",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "wef_is_alt",
+          "ordinal": 3,
+          "type_info": "Bool"
+        },
+        {
+          "name": "we_account_id",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "fitting_hull",
+          "ordinal": 5,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT\n                wef.id wef_id,\n                wef.category wef_category,\n                wef.character_id wef_character_id,\n\t\t\t\twef.is_alt wef_is_alt,\n                we.account_id we_account_id,\n                fitting.hull fitting_hull\n            FROM waitlist_entry_fit wef\n            JOIN waitlist_entry we ON wef.entry_id=we.id\n            JOIN fitting ON wef.fit_id = fitting.id\n            WHERE wef.id = $1\n        "
+  },
+  "f6f7a22375f353b1cdff65ed3197d6dc45867b191e81a44adafeca2af6edec07": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int8",
+          "Timestamp"
+        ]
+      }
+    },
+    "query": "SELECT id FROM ban WHERE kind = $1 AND id = $2 AND (expires_at IS NULL OR expires_at > $3)"
+  },
+  "f9a812eef6b4b86683170775b1d96cf62dedc119808f11b52bcfbae41e8f5f8e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "entry_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "waitlist_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        },
+        {
+          "name": "character_id",
+          "ordinal": 2,
+          "type_info": "Int8"
+        },
+        {
+          "name": "is_alt",
+          "ordinal": 3,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT entry_id, waitlist_id, character_id, is_alt FROM waitlist_entry_fit JOIN waitlist_entry ON waitlist_entry_fit.entry_id = waitlist_entry.id"
+  },
+  "f9fdbd5845c6fe17a7f366d498ed1334c53b1b5168e0235fb956de2a72f882a1": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "DELETE FROM waitlist_entry_fit WHERE entry_id = $1 AND is_alt = false"
+  },
+  "fc950506d0b169e8779bdbdce457cfeb5d700cac8eab507599759622438c4195": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT id FROM waitlist_entry_fit WHERE entry_id=$1"
+  },
+  "fe3ad4bf8211c4ad2ae89a97c32df8fa9061cf4df924cb5f0b54285faabbfdc5": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO admins (character_id, level) VALUES ($1, $2) ON CONFLICT (character_id) DO UPDATE SET level = $2"
+  },
+  "fe4845b7a32f19fe2266b23f59d74eeb539187279bac9a7aea27d8570eb0ac81": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO waitlist_entry (waitlist_id, account_id, joined_at) VALUES ($1, $2, $3) RETURNING id"
+  }
+}

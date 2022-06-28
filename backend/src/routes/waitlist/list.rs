@@ -15,6 +15,14 @@ use crate::{
 use eve_data_core::{TypeDB, TypeID};
 
 #[derive(Debug, Serialize)]
+struct WaitlistSummary {
+    id: i64,
+    name: String,
+    open: bool,
+    archived: bool,
+}
+
+#[derive(Debug, Serialize)]
 struct WaitlistResponse {
     open: bool,
     waitlist: Option<Vec<WaitlistEntry>>,
@@ -46,6 +54,34 @@ struct WaitlistEntryFit {
     is_alt: bool,
 }
 
+#[get("/api/waitlists?<archived>")]
+async fn list_all(
+    app: &rocket::State<Application>,
+    _account: AuthenticatedAccount,
+    archived: Option<bool>,
+) -> Result<Json<Vec<WaitlistSummary>>, Madness> {
+    let archived = match archived {
+        Some(true) => true,
+        Some(false) => false,
+        None => false,
+    };
+
+    let waitlists = sqlx::query!("SELECT id, name, is_open, is_archived FROM waitlist WHERE is_archived = $1 ORDER BY id", archived)
+        .fetch_all(app.get_db())
+        .await?;
+    
+    let mut response = Vec::new();
+    for waitlist in waitlists {
+        response.push(WaitlistSummary {
+            id: waitlist.id,
+            name: waitlist.name,
+            open: waitlist.is_open,
+            archived: waitlist.is_archived,
+        });
+    }
+    Ok(Json(response))
+}
+
 #[get("/api/waitlist?<waitlist_id>")]
 async fn list(
     app: &rocket::State<Application>,
@@ -64,7 +100,7 @@ async fn list(
     let waitlist = sqlx::query!("SELECT is_open FROM waitlist WHERE id = $1", waitlist_id)
         .fetch_optional(app.get_db())
         .await?;
-    if waitlist.is_none() || waitlist.unwrap().is_open {
+    if waitlist.is_none() || !waitlist.unwrap().is_open {
         return Ok(Json(WaitlistResponse {
             open: false,
             waitlist: None,
@@ -93,7 +129,7 @@ async fn list(
                 fitting.dna fitting_dna,
                 fitting.hull fitting_hull,
                 implant_set.implants implant_set_implants
-                FROM waitlist_entry_fit wef
+            FROM waitlist_entry_fit wef
             JOIN waitlist_entry we ON wef.entry_id = we.id
             JOIN \"character\" char_wef ON wef.character_id = char_wef.id
             JOIN \"character\" char_we ON we.account_id = char_we.id
@@ -128,6 +164,7 @@ async fn list(
                     Some(Character {
                         id: record.char_we_id,
                         name: record.char_we_name.clone(),
+                        account_id: Some(record.we_account_id),
                     })
                 } else {
                     None
@@ -172,6 +209,7 @@ async fn list(
             this_fit.character = Some(Character {
                 id: record.char_wef_id,
                 name: record.char_wef_name,
+                account_id: Some(record.we_account_id),
             });
             this_fit.hours_in_fleet = Some(record.wef_cached_time_in_fleet / 3600);
             this_fit.review_comment = record.wef_review_comment;
@@ -210,5 +248,5 @@ async fn list(
 }
 
 pub fn routes() -> Vec<rocket::Route> {
-    routes![list]
+    routes![list_all, list]
 }

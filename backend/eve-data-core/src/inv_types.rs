@@ -52,7 +52,7 @@ impl Type {
     }
 }
 
-std::thread_local!(static CONN: rusqlite::Connection = rusqlite::Connection::open("sqlite-shrunk.sqlite").unwrap());
+std::thread_local!(static CONN: rusqlite::Connection = rusqlite::Connection::open("sqlite-latest.sqlite").unwrap());
 
 lazy_static::lazy_static! {
     static ref TYPE_CACHE: RwLock<HashMap<TypeID, Option<Arc<Type>>>> = RwLock::new(HashMap::new());
@@ -311,7 +311,10 @@ impl TypeDB {
                 }
             }
         }
+
         if !missing.is_empty() {
+            let mut lmissing = missing.clone();
+
             let from_db = CONN.with(|conn| -> Result<_, TypeError> {
                 let placeholders = iter::repeat("?").take(missing.len()).collect::<Vec<&str>>().join(",");
                 let query = format!("SELECT typeID, typeName FROM invTypes WHERE typeName IN ({}) ORDER BY published ASC", placeholders);
@@ -333,6 +336,33 @@ impl TypeDB {
             for name in missing {
                 if let Some(type_id) = from_db.get(name) {
                     result.insert(name, *type_id);
+                    lmissing.remove(name);
+                }
+            }
+
+            if !lmissing.is_empty() {
+                let lfrom_db = CONN.with(|conn| -> Result<_, TypeError> {
+                    let placeholders = iter::repeat("?").take(lmissing.len()).collect::<Vec<&str>>().join(",");
+                    let query = format!("SELECT keyID, text FROM trnTranslations WHERE text IN ({}) AND tcID = 8", placeholders);
+
+                    let mut prepared = conn.prepare(&query)?;
+                    let rows = prepared.query_map(rusqlite::params_from_iter(lmissing.iter()), |row| {
+                        Ok((row.get(0)?, row.get(1)?))
+                    })?;
+
+                    let mut result: HashMap<String, TypeID> = HashMap::new();
+                    for row in rows {
+                        let (id, name) = row?;
+                        result.insert(name, id);
+                    }
+
+                    Ok(result)
+                })?;
+
+                for name in lmissing {
+                    if let Some(type_id) = lfrom_db.get(name) {
+                        result.insert(name, *type_id);
+                    }
                 }
             }
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { AuthContext, ToastContext } from "../../contexts";
+import { AuthContext, ToastContext, WaitlistContext } from "../../contexts";
 import { Confirm } from "../../Components/Modal";
 import { Button, Buttons, InputGroup, NavButton, Select } from "../../Components/Form";
 import { Content, Title } from "../../Components/Page";
@@ -7,6 +7,10 @@ import { apiCall, errorToaster, toaster, useApi } from "../../api";
 import { Cell, CellHead, Row, Table, TableBody, TableHead } from "../../Components/Table";
 import { BorderedBox } from "../../Components/NoteBox";
 import _ from "lodash";
+import { useHistory, useLocation } from "react-router";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faRotate } from "@fortawesome/pro-solid-svg-icons";
+import { useTranslation } from "react-i18next";
 
 const marauders = ["Paladin", "Kronos"];
 const logi = ["Nestor", "Guardian", "Oneiros"];
@@ -33,9 +37,22 @@ async function closeFleet(characterId) {
 export function Fleet() {
   const [fleetCloseModalOpen, setFleetCloseModalOpen] = React.useState(false);
   const [emptyWaitlistModalOpen, setEmptyWaitlistModalOpen] = React.useState(false);
+  const [refreshedAt, setRefreshedAt] = React.useState(Date.now());
   const authContext = React.useContext(AuthContext);
   const toastContext = React.useContext(ToastContext);
-  const [fleets] = useApi("/api/fleet/status");
+  const waitlistContext = React.useContext(WaitlistContext);
+  const waitlistId = waitlistContext !== null ? waitlistContext.active : null;
+  const { t } = useTranslation("fleet");
+  const [fleets, refreshFleet] = useApi("/api/fleet/status");
+  const location = useLocation();
+
+  React.useEffect(() => {
+    if (waitlistId !== null) {
+      const params = new URLSearchParams(location.search);
+      params.set("wl", waitlistId);
+      window.history.replaceState({}, "", `${location.pathname}?${params.toString()}`);
+    }
+  }, [waitlistId, location]);
 
   React.useEffect(() => {
     // FCs will need this, request it now
@@ -44,23 +61,31 @@ export function Fleet() {
     }
   }, []);
 
+  if (waitlistContext === null || waitlistContext.available === null || !waitlistContext.available.find(n => n.id === waitlistContext.active)) {
+    return (<>{t("loading")}</>);
+  }
+
+  const currentWaitlist = waitlistContext.available.find(n => n.id === waitlistContext.active);
+
   return (
     <>
       <Buttons>
-        <NavButton to="/fc/fleet/register">Configure fleet</NavButton>
-        <NavButton to="/auth/start/fc">ESI re-auth as FC</NavButton>
+        <NavButton to="/fc/fleet/register">{t("load_fleet")}</NavButton>
+        {/* <NavButton to="/auth/start/fc">ESI re-auth as FC</NavButton> */}
         <InputGroup>
-          <Button variant="success" onClick={() => toaster(toastContext, setWaitlistOpen(1, true))}>
-            Open waitlist
+          <Button variant={currentWaitlist.open ? 'success' : ''} onClick={() => toaster(toastContext, setWaitlistOpen(waitlistContext.active, true))}>
+            {t("open")}
           </Button>
-          <Button onClick={() => toaster(toastContext, setWaitlistOpen(1, false))}>
-            Close waitlist
+          <Button variant={!currentWaitlist.open ? 'danger' : ''} onClick={() => toaster(toastContext, setWaitlistOpen(waitlistContext.active, false))}>
+            {t("close")}
           </Button>
-          <Button onClick={() => setEmptyWaitlistModalOpen(true)}>Empty waitlist</Button>
         </InputGroup>
+        <Button onClick={() => setEmptyWaitlistModalOpen(true)}>{t("clear_waitlist")}</Button>
+        {fleets && fleets.fleets.length > 0 && fleets.fleets.some(n => authContext.current.id === n.boss.id) && 
         <Button variant="danger" onClick={() => setFleetCloseModalOpen(true)}>
-          Kick everyone from fleet
-        </Button>
+          {t("kick_everyone")}
+          </Button>}
+        <Button onClick={() => { refreshFleet(); setRefreshedAt(Date.now()); }}><FontAwesomeIcon icon={faRotate} /></Button>
       </Buttons>
       <Content>
         <p>
@@ -76,7 +101,7 @@ export function Fleet() {
           ? null
           : fleets.fleets.map((fleet) => (
               <div key={fleet.id}>
-                STATUS: Fleet {fleet.id}, boss {fleet.boss.name}
+              Fleet <code>{fleet.id}</code> (<code>{fleet.boss.name}</code>)
               </div>
             ))}
       </Content>
@@ -86,7 +111,7 @@ export function Fleet() {
         </Buttons>
       )}
 
-      <FleetMembers />
+      {fleets && fleets.fleets.length > 0 && fleets.fleets.some(n => authContext.current.id === n.boss.id) && <FleetMembers refreshedAt={refreshedAt} />}
       <Confirm
         open={fleetCloseModalOpen}
         setOpen={setFleetCloseModalOpen}
@@ -104,7 +129,7 @@ export function Fleet() {
         setOpen={setEmptyWaitlistModalOpen}
         title="Empty waitlist"
         onConfirm={(evt) =>
-          toaster(toastContext, emptyWaitlist(1)).finally(() => setEmptyWaitlistModalOpen(false))
+          toaster(toastContext, emptyWaitlist(waitlistContext.active)).finally(() => setEmptyWaitlistModalOpen(false))
         }
       >
         Are you sure?
@@ -123,7 +148,7 @@ async function registerFleet({ fleetInfo, categoryMatches, authContext }) {
   });
 }
 
-function FleetMembers() {
+function FleetMembers({refreshedAt}) {
   const authContext = React.useContext(AuthContext);
   const [fleetMembers, setFleetMembers] = React.useState(null);
   const characterId = authContext.current.id;
@@ -132,7 +157,7 @@ function FleetMembers() {
     apiCall("/api/fleet/members?character_id=" + characterId, {})
       .then(setFleetMembers)
       .catch((err) => setFleetMembers(null)); // What's error handling?
-  }, [characterId]);
+  }, [characterId, refreshedAt]);
 
   if (!fleetMembers) {
     return null;
@@ -184,12 +209,21 @@ function FleetMembers() {
       <br />
       <Title>Members</Title>
       <Table fullWidth>
+        <TableHead>
+          <Row>
+            <CellHead>Name</CellHead>
+            <CellHead>Ship</CellHead>
+            <CellHead>Account</CellHead>
+            <CellHead>Actions</CellHead>
+          </Row>
+        </TableHead>
         <TableBody>
           {fleetMembers &&
             fleetMembers.members.map((member) => (
               <Row key={member.id}>
                 <Cell>{member.name}</Cell>
                 <Cell>{member.ship.name}</Cell>
+                <Cell>{member.account_name}</Cell>
                 <Cell>
                   <NavButton to={"/skills?character_id=" + member.id}>Skills</NavButton>
                   <NavButton to={"/pilot?character_id=" + member.id}>Information</NavButton>
@@ -234,6 +268,7 @@ export function FleetRegister() {
   const [fleetInfo, setFleetInfo] = React.useState(null);
   const [categories, setCategories] = React.useState(null);
   const [categoryMatches, setCategoryMatches] = React.useState({});
+  const history = useHistory();
 
   const characterId = authContext.current.id;
   React.useEffect(() => {
@@ -277,8 +312,9 @@ export function FleetRegister() {
       />
       <Button
         variant="primary"
-        onClick={(evt) =>
+        onClick={(evt) => 
           toaster(toastContext, registerFleet({ authContext, fleetInfo, categoryMatches }))
+          .then(() => history.push("/fc/fleet")) 
         }
       >
         Continue

@@ -12,6 +12,9 @@ struct WaitlistUpdate {
 #[derive(Debug, Serialize)]
 struct Message {
     message: &'static str,
+    waitlist_id: i64,
+    permission: &'static str,
+    tag: String,
 }
 
 pub async fn notify_waitlist_update(app: &Application, waitlist_id: i64) -> Result<(), SSEError> {
@@ -41,6 +44,9 @@ pub async fn notify_waitlist_update_and_xup(
                 "message",
                 &Message {
                     message: "New x-up in waitlist",
+                    permission: "waitlist-manage",
+                    waitlist_id: waitlist_id,
+                    tag: format!("waitlist-xup-{}", waitlist_id),
                 },
             ),
         ])
