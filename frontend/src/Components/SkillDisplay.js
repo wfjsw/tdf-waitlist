@@ -5,7 +5,7 @@ import { Col, Row } from "react-awesome-styled-grid";
 import { InfoNote } from "./NoteBox";
 
 import styled from "styled-components";
-import _ from "lodash";
+import { invert, forEach, keys } from "lodash";
 
 const SkillDom = {};
 
@@ -130,14 +130,14 @@ function SkillTable({ title, current, requirements, ids, category, filterMin }) 
 }
 
 export function SkillList({ mySkills, shipName, filterMin }) {
-  const ids = _.invert(mySkills.ids);
+  const ids = invert(mySkills.ids);
 
   if (!(shipName in mySkills.requirements)) {
     return <em>No skill information found</em>;
   }
 
   const categories = [...categoryOrder];
-  _.forEach(_.keys(mySkills.categories), (categoryName) => {
+  forEach(keys(mySkills.categories), (categoryName) => {
     if (!knownCategories.has(categoryName)) {
       categories.push(categoryName);
     }

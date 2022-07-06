@@ -1,7 +1,7 @@
 import React from "react";
 import styled from "styled-components";
 import { apiCall, toaster } from "../api";
-import _ from "lodash";
+import { isEmpty } from "lodash";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaste } from "@fortawesome/pro-solid-svg-icons";
 import { ToastContext } from "../contexts";
@@ -218,7 +218,7 @@ function _addCount2(destination, origModuleId, newModuleId, count) {
   if (!destination[realOrigModuleId][realNewModuleId]) {
     delete destination[realOrigModuleId][realNewModuleId];
   }
-  if (_.isEmpty(destination[realOrigModuleId])) {
+  if (isEmpty(destination[realOrigModuleId])) {
     delete destination[realOrigModuleId];
   }
 }

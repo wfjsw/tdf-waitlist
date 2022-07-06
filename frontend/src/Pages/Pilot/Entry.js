@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import styled from "styled-components";
 import { Box } from "../../Components/Box";
 import { FitDisplay } from "../../Components/FitDisplay";
@@ -7,8 +7,10 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClipboard, faGraduationCap, faPen, faPlane } from "@fortawesome/pro-solid-svg-icons";
 import { Badge } from "../../Components/Badge";
 import { formatDatetime, formatDuration } from "../../Util/time";
-import ReactMarkdown from "react-markdown";
 import { Content } from "../../Components/Page";
+
+// import ReactMarkdown from "react-markdown";
+const ReactMarkdown = React.lazy(() => import("react-markdown"));
 
 const Link = styled.a`
   cursor: pointer;
@@ -101,7 +103,9 @@ export function NoteEntry({ logged_at, author, note }) {
         <p>
           Note written by <strong>{author.name}</strong>
         </p>
-        <ReactMarkdown>{note}</ReactMarkdown>
+        <Suspense fallback={<div><i>Loading...</i></div>}>
+          <ReactMarkdown>{note}</ReactMarkdown>
+        </Suspense>
       </Content>
     </Entry>
   );

@@ -9,7 +9,7 @@ import { ToastContext } from "../contexts";
 import { useLocation } from "react-router";
 import { formatDatetime, formatDuration } from "../Util/time";
 import { formatNumber } from "../Util/number";
-import _ from "lodash";
+import { sortBy } from "lodash";
 import styled from "styled-components";
 
 function encodeArray(numbers) {
@@ -148,7 +148,7 @@ function parseWallet(input) {
     });
   }
 
-  lines = _.sortBy(lines, ["time", "value"]);
+  lines = sortBy(lines, ["time", "value"]);
   var lastTime = null;
   var chars = 1;
   var siteTimes = [];

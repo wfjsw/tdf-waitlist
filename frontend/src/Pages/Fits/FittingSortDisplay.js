@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import _ from "lodash";
+import { sortBy, forEach } from "lodash";
 import { DNADisplay } from "../../Components/FitDisplay";
 import { ImplantTable } from "./ImplantText";
 import { Box } from "../../Components/Box";
@@ -101,15 +101,15 @@ function Fitout({ data, tier }) {
   if (tier === "Nogank") {
     ships = data.fittingdata;
   } else {
-    ships = _.sortBy(data.fittingdata, function (item) {
+    ships = sortBy(data.fittingdata, function (item) {
       return item.name.indexOf("HYBRID");
     });
   }
 
-  _.forEach(data.rules, (ship) => {
+  forEach(data.rules, (ship) => {
     logiid.push(ship);
   });
-  _.forEach(data.notes, (note) => {
+  forEach(data.notes, (note) => {
     notes[note.name] = note.description;
   });
 

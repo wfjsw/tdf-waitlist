@@ -1,9 +1,33 @@
 import React from "react";
-import _ from "lodash";
+import { merge, map, cloneDeep } from "lodash";
 import { useApi } from "../../api";
+import {
+  Chart,
+  CategoryScale,
+  LinearScale,
+  ArcElement,
+  PointElement,
+  BarElement,
+  LineElement,
+  Title,
+  Legend,
+  Tooltip,
+} from "chart.js";
 import { Bar, Line, Doughnut } from "react-chartjs-2";
 import styled, { ThemeContext } from "styled-components";
 import { Row, Col } from "react-awesome-styled-grid";
+
+Chart.register(
+  CategoryScale,
+  LinearScale,
+  ArcElement,
+  PointElement,
+  BarElement,
+  LineElement,
+  Title,
+  Legend,
+  Tooltip
+);
 
 const Graph = styled(Col).attrs({ md: 4 })`
   max-height: 350px;
@@ -24,7 +48,7 @@ function makeColor(theme, name) {
 }
 
 function makeOptions(theme, options) {
-  return _.merge(
+  return merge(
     {},
     {
       maintainAspectRatio: false,
@@ -43,7 +67,7 @@ function makeOptions(theme, options) {
 }
 
 function makeData(theme, data, colorPerLabel) {
-  var newData = _.cloneDeep(data);
+  var newData = cloneDeep(data);
   if (newData.datasets) {
     for (var dataset of newData.datasets) {
       for (const colorProperty of ["backgroundColor", "borderColor"]) {
@@ -171,7 +195,7 @@ function FleetTimeByHullMonth({ data }) {
     <ThemedBar
       data={{
         labels: series.labels,
-        datasets: _.map(series.series, (numbers, label) => ({
+        datasets: map(series.series, (numbers, label) => ({
           label: label,
           data: numbers.map((seconds) => Math.round(seconds / 3600)),
         })),
@@ -195,7 +219,7 @@ function XByHullMonth({ data }) {
     <ThemedLine
       data={{
         labels: series.labels,
-        datasets: _.map(series.series, (numbers, label) => ({
+        datasets: map(series.series, (numbers, label) => ({
           label: label,
           data: numbers.map((num) => num || 0),
         })),
@@ -218,7 +242,7 @@ function TimeSpentInFleetByMonth({ data }) {
     <ThemedBar
       data={{
         labels: series.labels,
-        datasets: _.map(series.series, (numbers, label) => ({
+        datasets: map(series.series, (numbers, label) => ({
           label: label,
           data: numbers.map((num) => num || 0),
         })),
@@ -241,7 +265,7 @@ function XVsTimeByHull28d({ data }) {
     <ThemedBar
       data={{
         labels: series.labels,
-        datasets: _.map(series.series, (numbers, label) => ({
+        datasets: map(series.series, (numbers, label) => ({
           label: label,
           data: numbers.map((num) => Math.round((num || 0) * 1000) / 10),
         })),

@@ -1,6 +1,6 @@
 import { Table, TableBody, Cell, Row, CellHead } from "../../Components/Table";
 import { formatDuration } from "../../Util/time";
-import _ from "lodash";
+import { sum } from "lodash";
 
 export function ActivitySummary({ summary }) {
   if (!summary) {
@@ -11,7 +11,7 @@ export function ActivitySummary({ summary }) {
     return <em>Never seen before</em>;
   }
 
-  const total = _.sum(summary.map(({ time_in_fleet }) => time_in_fleet));
+  const total = sum(summary.map(({ time_in_fleet }) => time_in_fleet));
 
   return (
     <Table fullWidth edgeLine style={{ marginBottom: "2em" }}>

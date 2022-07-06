@@ -17,7 +17,7 @@ import {
   faExclamationTriangle,
   faTimes,
 } from "@fortawesome/pro-solid-svg-icons";
-import _ from "lodash";
+import { sortBy, isFinite } from "lodash";
 
 import egoldBadge from "../Guide/guides/badges/egold.png";
 
@@ -332,7 +332,7 @@ export function XCard({ entry, fit, onAction }) {
 
   const is_alt = fit.is_alt;
   const accountName = entry.character ? entry.character.name : "Name hidden";
-  const tags = _.sortBy(fit.tags, function (item) {
+  const tags = sortBy(fit.tags, function (item) {
     return badgeOrder.indexOf(item);
   });
   var isSelf = entry.character && entry.character.id === authContext.account_id;
@@ -430,7 +430,7 @@ export function XCard({ entry, fit, onAction }) {
               id={fit.character.id}
             />
           )}
-          {_.isFinite(fit.hours_in_fleet) ? (
+          {isFinite(fit.hours_in_fleet) ? (
             <span title={t("hours_in_fleet")}>{fit.hours_in_fleet}h</span>
           ) : null}
           {authContext.access["waitlist-manage"] && (
@@ -467,7 +467,7 @@ export function XCard({ entry, fit, onAction }) {
             </a>
           )}
         </XCardDOM.Footer>
-        {!is_alt && _.isFinite(fit.hours_in_fleet) && fit.hours_in_fleet < 1 && (
+        {!is_alt && isFinite(fit.hours_in_fleet) && fit.hours_in_fleet < 1 && (
           <XCardDOM.Footer>
             <span>NEWBRO</span>
           </XCardDOM.Footer>

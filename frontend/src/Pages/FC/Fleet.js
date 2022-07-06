@@ -6,7 +6,7 @@ import { Content, Title } from "../../Components/Page";
 import { apiCall, errorToaster, toaster, useApi } from "../../api";
 import { Cell, CellHead, Row, Table, TableBody, TableHead } from "../../Components/Table";
 import { BorderedBox } from "../../Components/NoteBox";
-import _ from "lodash";
+import { sortBy, entries } from "lodash";
 import { useNavigate, useLocation } from "react-router";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRotate } from "@fortawesome/pro-solid-svg-icons";
@@ -198,7 +198,7 @@ function FleetMembers({refreshedAt}) {
           </Row>
         </TableHead>
         <TableBody>
-          {_.sortBy(_.entries(summary), [1]).map(([shipName, count]) => (
+          {sortBy(entries(summary), [1]).map(([shipName, count]) => (
             <Row key={shipName}>
               <Cell>{shipName}</Cell>
               <Cell>{count}</Cell>

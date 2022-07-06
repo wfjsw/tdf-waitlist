@@ -43,7 +43,7 @@ export function GuideFC() {
 
     errorToaster(
       toastContext,
-      fetch(guideData[filename].default)
+      fetch(guideData[filename])
         .then((response) => response.text())
         .then(setLoadedData)
     );
@@ -52,7 +52,7 @@ export function GuideFC() {
   const resolveImage = (name) => {
     const originalName = `${guidePath}/${name}`;
     if (originalName in guideData) {
-      return guideData[originalName].default;
+      return guideData[originalName];
     }
     return name;
   };

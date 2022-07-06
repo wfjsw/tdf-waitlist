@@ -1,4 +1,4 @@
-import _ from "lodash";
+import { merge } from "lodash";
 
 const globals = {
   font: {
@@ -11,7 +11,7 @@ const globals = {
 };
 
 const theme = {
-  Light: _.merge({}, globals, {
+  Light: merge({}, globals, {
     colors: {
       background: "#ffffff",
       text: "#4a4a4a",
@@ -80,7 +80,7 @@ const theme = {
       },
     },
   }),
-  Dark: _.merge({}, globals, {
+  Dark: merge({}, globals, {
     // logo: {
     //   filter: "invert(1)",
     // },
@@ -154,7 +154,7 @@ const theme = {
   }),
 };
 
-theme.AMOLED = _.merge({}, theme.Dark, {
+theme.AMOLED = merge({}, theme.Dark, {
   colors: {
     text: "#f0f0f0",
     background: "#000000",
@@ -162,14 +162,14 @@ theme.AMOLED = _.merge({}, theme.Dark, {
   },
 });
 
-theme["Midnight Blue"] = _.merge({}, theme.Dark, {
+theme["Midnight Blue"] = merge({}, theme.Dark, {
   colors: {
     background: "#0a0a2c",
     accent1: "#1e1e40",
   },
 });
 
-theme.Ninjaholic = _.merge({}, theme.Dark, {
+theme.Ninjaholic = merge({}, theme.Dark, {
   colors: {
     background: "#290052",
     accent1: "#380070",
@@ -186,7 +186,7 @@ theme.Ninjaholic = _.merge({}, theme.Dark, {
   },
 });
 
-theme["Specialist"] = _.merge({}, theme.Light, {
+theme["Specialist"] = merge({}, theme.Light, {
   colors: {
     text: "#666666",
     background: "#fdf3f9",
@@ -248,7 +248,7 @@ theme["Specialist"] = _.merge({}, theme.Light, {
   // },
 });
 
-theme["Chocola"] = _.merge({}, theme.Dark, {
+theme["Chocola"] = merge({}, theme.Dark, {
   colors: {
     background: "#30292c",
     active: "#FF357C",

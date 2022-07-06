@@ -1,11 +1,16 @@
 import React, { Suspense } from "react";
 import { BrowserRouter as Router } from "react-router-dom";
+import * as Sentry from "@sentry/react";
+
 import { processAuth } from "../Pages/Auth";
 import { ToastDisplay } from "../Components/Toast";
 import { AuthContext, ToastContext, EventContext, WaitlistContext } from "../contexts";
 import { ThemeProvider, createGlobalStyle } from "styled-components";
 import { Routes } from "./routes";
 import { Container } from "react-awesome-styled-grid";
+
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPowerOff } from "@fortawesome/pro-solid-svg-icons";
 
 import { Menu } from "./Menu";
 import "./reset.css";
@@ -54,14 +59,23 @@ const GlobalStyle = createGlobalStyle`
 `;
 
 function Spinner() {
-  return (<div>Loading...</div>);
+  return (<div><i>Downloading extra components...</i></div>);
+}
+
+function ErrorDisplay({resetError}) {
+  return (
+    <>
+      <div>An error has occurred. Please click the following button to reload.</div>
+      <button onClick={() => resetError()}><FontAwesomeIcon icon={faPowerOff} /></button>
+    </>
+  );
 }
 
 export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      auth: null,
+      auth: false,
       waitlists: null,
       toasts: [],
       events: null,
@@ -162,9 +176,11 @@ export default class App extends React.Component {
                         }
                       }}
                     />
-                    <Suspense fallback={<Spinner />}>
-                      <Routes />
-                    </Suspense>
+                    <Sentry.ErrorBoundary fallback={<ErrorDisplay />} showDialog>
+                      <Suspense fallback={<Spinner />}>
+                        <Routes />
+                      </Suspense>
+                    </Sentry.ErrorBoundary>
                     <ToastDisplay
                       toasts={this.state.toasts}
                       setToasts={(toasts) => this.setState({ toasts })}

@@ -7,7 +7,7 @@ import { InputGroup, Select, NavButton, AButton } from "../Components/Form";
 import { EventNotifier } from "../Components/Event";
 import { ThemeSelect } from "../Components/ThemeSelect";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faRotate, faBug } from "@fortawesome/pro-solid-svg-icons";
+import { faRotate, faBug, faHourglassClock } from "@fortawesome/pro-solid-svg-icons";
 // import { faDiscord } from "@fortawesome/pro-brands-svg-icons";
 import { NavLinks, MobileNavButton, MobileNav } from "./Navigation";
 import { useTranslation } from 'react-i18next';
@@ -78,86 +78,100 @@ NavBar.Main = styled.div`
 `;
 
 export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme }) {
+  const whoami = React.useContext(AuthContext);
   const { t } = useTranslation();
   const [isOpenMobileView, setOpenMobileView] = React.useState(false);
-  return (
-    <AuthContext.Consumer>
-      {(whoami) => (
-        <NavBar>
-            <MobileNavButton isOpen={isOpenMobileView} setIsOpen={setOpenMobileView} />
-            <NavBar.LogoLink to="/">
-              <NavBar.Logo src={logoImage} alt="Winter Coalition" />
-            </NavBar.LogoLink>
-          <NavBar.Menu>
-            <NavBar.Main>
-              <NavLinks whoami={whoami} />
-            </NavBar.Main>
-            <NavBar.End>
-              {whoami && (
-                <>
-                  <WaitlistContext.Consumer>
-                    {(waitlists) => waitlists && (
-                      <InputGroup style={{ marginRight: "2em" }}>
-                        <Select
-                          value={waitlists.active}
-                          onChange={(evt) =>
-                            onChangeWaitlist && onChangeWaitlist(parseInt(evt.target.value))
-                          }
-                        >
-                          {waitlists.available.map((wl) => (
-                            <option key={wl.id} value={wl.id}>
-                              {wl.name} {wl.open ? '🟢' : '🔴' }
-                            </option>
-                          ))}
-                        </Select>
-                      </InputGroup>
-                    )}
-                  </WaitlistContext.Consumer>
 
+  let loginBtn;
+  if (whoami === false) {
+    loginBtn = (
+      <AButton
+        title="Loading"
+        variant="secondary"
+        disabled
+      >
+        <FontAwesomeIcon icon={faHourglassClock} />
+      </AButton>
+    );
+  } else if (whoami === null) {
+    loginBtn = (
+      <NavButton end to="/auth/start" variant="primary">
+        {t('login')}
+      </NavButton>
+    )
+  } else {
+    loginBtn = (
+      <NavButton end to="/auth/logout" variant="secondary">
+        {t("logout")}
+      </NavButton>
+    )
+  }
+
+  return (
+    <NavBar>
+        <MobileNavButton isOpen={isOpenMobileView} setIsOpen={setOpenMobileView} />
+        <NavBar.LogoLink to="/">
+          <NavBar.Logo src={logoImage} alt="Winter Coalition" />
+        </NavBar.LogoLink>
+      <NavBar.Menu>
+        <NavBar.Main>
+          <NavLinks whoami={whoami} />
+        </NavBar.Main>
+        <NavBar.End>
+          {whoami && (
+            <>
+              <WaitlistContext.Consumer>
+                {(waitlists) => waitlists && (
                   <InputGroup style={{ marginRight: "2em" }}>
                     <Select
-                      value={whoami.current.id}
+                      value={waitlists.active}
                       onChange={(evt) =>
-                        onChangeCharacter && onChangeCharacter(parseInt(evt.target.value))
+                        onChangeWaitlist && onChangeWaitlist(parseInt(evt.target.value))
                       }
                     >
-                      {whoami.characters.map((character) => (
-                        <option key={character.id} value={character.id}>
-                          {character.name}
+                      {waitlists.available.map((wl) => (
+                        <option key={wl.id} value={wl.id}>
+                          {wl.name} {wl.open ? '🟢' : '🔴' }
                         </option>
                       ))}
                     </Select>
-                    <NavButton end to="/auth/start">
-                      <FontAwesomeIcon icon={faRotate} />
-                    </NavButton>
                   </InputGroup>
-                </>
-              )}
-              <InputGroup>
-                {/* <AButton title="Discord" href="https://discord.gg/YTysdbb">
-                  <FontAwesomeIcon icon={faDiscord} />
-                </AButton> */}
-                <EventNotifier />
-                <ThemeSelect theme={theme} setTheme={setTheme} />
-                <AButton title="ReportBug" href="https://jira.winterco.org/projects/WAITLIST/issues" target="_blank">
-                  <FontAwesomeIcon icon={faBug} />
-                </AButton>
-                {whoami ? (
-                  <NavButton end to="/auth/logout" variant="secondary">
-                    {t("logout")}
-                  </NavButton>
-                ) : (
-                  <NavButton end to="/auth/start" variant="primary">
-                    {t('login')}
-                  </NavButton>
                 )}
-              
+              </WaitlistContext.Consumer>
+
+              <InputGroup style={{ marginRight: "2em" }}>
+                <Select
+                  value={whoami.current.id}
+                  onChange={(evt) =>
+                    onChangeCharacter && onChangeCharacter(parseInt(evt.target.value))
+                  }
+                >
+                  {whoami.characters.map((character) => (
+                    <option key={character.id} value={character.id}>
+                      {character.name}
+                    </option>
+                  ))}
+                </Select>
+                <NavButton end to="/auth/start">
+                  <FontAwesomeIcon icon={faRotate} />
+                </NavButton>
               </InputGroup>
-            </NavBar.End>
-            <MobileNav isOpen={isOpenMobileView} whoami={whoami} />
-          </NavBar.Menu>
-        </NavBar>
-      )}
-    </AuthContext.Consumer>
+            </>
+          )}
+          <InputGroup>
+            {/* <AButton title="Discord" href="https://discord.gg/YTysdbb">
+              <FontAwesomeIcon icon={faDiscord} />
+            </AButton> */}
+            <EventNotifier />
+            <ThemeSelect theme={theme} setTheme={setTheme} />
+            <AButton title="ReportBug" href="https://jira.winterco.org/projects/WAITLIST/issues" target="_blank">
+              <FontAwesomeIcon icon={faBug} />
+            </AButton>
+            {loginBtn}
+          </InputGroup>
+        </NavBar.End>
+        <MobileNav isOpen={isOpenMobileView} whoami={whoami} />
+      </NavBar.Menu>
+    </NavBar>
   );
 }

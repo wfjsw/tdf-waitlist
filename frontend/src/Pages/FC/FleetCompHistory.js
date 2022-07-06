@@ -1,7 +1,7 @@
 import React from "react";
 import { useApi } from "../../api";
 import { Input, InputGroup } from "../../Components/Form";
-import _ from "lodash";
+import { map, isEmpty } from "lodash";
 import { Content } from "../../Components/Page";
 import { Cell, CellHead, Row, Table, TableBody, TableHead } from "../../Components/Table";
 import { formatDatetime, formatDuration } from "../../Util/time";
@@ -32,7 +32,7 @@ export function FleetCompHistory() {
 
       {result && <h2>Results</h2>}
       {result &&
-        _.map(result.fleets, (comp, fleetId) => (
+        map(result.fleets, (comp, fleetId) => (
           <div key={fleetId}>
             <h3>Fleet {fleetId}</h3>
             <Table fullWidth>
@@ -66,7 +66,7 @@ export function FleetCompHistory() {
             </Table>
           </div>
         ))}
-      {result && _.isEmpty(result.fleets) && <em>Nothing found!</em>}
+      {result && isEmpty(result.fleets) && <em>Nothing found!</em>}
     </Content>
   );
 }

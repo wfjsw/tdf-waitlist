@@ -1,6 +1,7 @@
 import React, {lazy} from "react";
 
 import { Route, Routes as Switch } from "react-router-dom";
+import * as Sentry from "@sentry/react";
 import { AuthContext } from "../contexts";
 
 import { SkillRoutes } from "../Pages/Skills";
@@ -20,10 +21,12 @@ import { AuthRoutes } from "../Pages/Auth";
 const Guide = lazy(() => import("../Pages/Guide/lazy.guide"));
 const FCRoutes = lazy(() => import("../Pages/FC/lazy"));
 
+const SentryRoutes = Sentry.withSentryReactRouterV6Routing(Switch)
+
 export function Routes() {
   const authContext = React.useContext(AuthContext);
   return (
-    <Switch>
+    <SentryRoutes>
       <Route path="/" element={<Home />} />
       <Route path="/legal" element={<Legal />} />
 
@@ -44,6 +47,6 @@ export function Routes() {
       )}
 
       <Route path="/auth/*" element={<AuthRoutes />} />
-    </Switch>
+    </SentryRoutes>
   );
 }

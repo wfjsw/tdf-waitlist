@@ -1,4 +1,4 @@
-import _ from "lodash";
+import { sortBy } from "lodash";
 import styled from "styled-components";
 
 import { FitEntry, SkillEntry, FleetEntry, NoteEntry } from "./Entry";
@@ -64,7 +64,7 @@ function CombinedDisplay({ filter, fleetHistory, xupHistory, skillHistory, notes
   }
 
   // Sort
-  everything = _.sortBy(everything, ["time"]);
+  everything = sortBy(everything, ["time"]);
 
   // Create groups with entries
   var groups = [];

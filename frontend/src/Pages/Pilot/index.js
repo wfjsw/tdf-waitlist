@@ -18,7 +18,7 @@ import styled from "styled-components";
 import { InputGroup, NavButton } from "../../Components/Form";
 import { Row, Col } from "react-awesome-styled-grid";
 import { AddACL } from "../FC/Search";
-import _ from "lodash";
+import { forEach } from "lodash";
 
 const FilterButtons = styled.span`
   font-size: 0.75em;
@@ -32,7 +32,7 @@ const FilterButtons = styled.span`
 
 function PilotTags({ tags }) {
   var tagImages = [];
-  _.forEach(tags, (tag) => {
+  forEach(tags, (tag) => {
     if (tag in tagBadges) {
       tagImages.push(
         <div key={tag} style={{ marginRight: "0.2em" }}>

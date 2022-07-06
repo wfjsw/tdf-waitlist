@@ -1,6 +1,6 @@
 import { Content } from "../../Components/Page";
 import { Textarea } from "../../Components/Form";
-import _ from "lodash";
+import { forEach } from "lodash";
 
 function waitlistToFormatted(waitlist) {
   return waitlist.waitlist
@@ -10,7 +10,7 @@ function waitlistToFormatted(waitlist) {
       if (!entry.character) {
         return "";
       }
-      _.forEach(entry.fits, (fit) => {
+      forEach(entry.fits, (fit) => {
         if (!fit.character) {
           return;
         }

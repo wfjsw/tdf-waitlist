@@ -1,7 +1,7 @@
 import React from "react";
 import { toaster, useApi } from "../../api";
 import { AuthContext, ToastContext } from "../../contexts";
-import _ from "lodash";
+import { find, invert, forEach } from "lodash";
 import { Content, PageTitle } from "../../Components/Page";
 import { Table, Row, Cell, TableHead, TableBody, CellHead } from "../../Components/Table";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -43,7 +43,7 @@ function PlanDisplay({ authContext }) {
   }
 
   if (plan) {
-    const planObj = _.find(plans.plans, (elmt) => elmt.source.name === plan);
+    const planObj = find(plans.plans, (elmt) => elmt.source.name === plan);
     if (!planObj) {
       return <em>Plan not found</em>;
     }
@@ -73,8 +73,8 @@ function ShowPlan({ plan, mySkills }) {
   const [howtoModal, setHowtoModal] = React.useState(false);
 
   var skillList = [];
-  var lookup = _.invert(mySkills.ids);
-  _.forEach(plan.levels, ([skillId, level]) => {
+  var lookup = invert(mySkills.ids);
+  forEach(plan.levels, ([skillId, level]) => {
     const skillName = lookup[skillId];
     const trainedLevel = mySkills.current[skillId];
 
