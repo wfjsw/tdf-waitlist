@@ -224,13 +224,13 @@ export function Waitlist() {
             </Button>
           )}
         </InputGroup>
-        {displayMode === "columns" && (
+        {(displayMode === "columns" || displayMode === "rows" || displayMode === "matrix") && (
           <Button onClick={handleChange}>
             <FontAwesomeIcon icon={faColumns} />
           </Button>
         )}
         {!altCol && (
-          <CategoryHeading name="Alts" fleetComposition={fleetComposition} altCol={altCol} />
+          <CategoryHeading name="小号 ALT" fleetComposition={fleetComposition} altCol={altCol} />
         )}
       </Buttons>
 
@@ -250,12 +250,14 @@ export function Waitlist() {
           waitlist={waitlistData}
           onAction={refreshWaitlist}
           fleetComposition={fleetComposition}
+          altCol={altCol}
         />
       ) : displayMode === "rows" ? (
         <RowWaitlist
           waitlist={waitlistData}
           onAction={refreshWaitlist}
           fleetComposition={fleetComposition}
+          altCol={altCol}
         />
       ) : displayMode === "notepad" ? (
         <NotepadWaitlist waitlist={waitlistData} onAction={refreshWaitlist} />

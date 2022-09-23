@@ -9,7 +9,6 @@ const SentryPlugin = require("@sentry/webpack-plugin");
 const release = Math.floor(Date.now() / 1000).toString()
 
 const addSentryPlugin = config => {
-    config.devtool = 'hidden-source-map';
     config.plugins.push(
         new SentryPlugin({
             release: process.env.RELEASE,

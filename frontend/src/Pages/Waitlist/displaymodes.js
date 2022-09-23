@@ -47,7 +47,7 @@ function CategoryHeading({ name, fleetComposition, altCol = true }) {
   if (!(fleetComposition && fleetComposition.members)) {
     return (
       <>
-        {!altCol && name === "Alts" ? null : (
+        {!altCol && name === "小号 ALT" ? null : (
           <CategoryHeadingDOM>
             <h2>{name}</h2>
           </CategoryHeadingDOM>
@@ -60,7 +60,7 @@ function CategoryHeading({ name, fleetComposition, altCol = true }) {
     fleetComposition.members,
     (member) => member.wl_category === name
   );
-  if (!altCol && name === "Alts" && categoryMembers.length === 0) {
+  if (!altCol && name === "小号 ALT" && categoryMembers.length === 0) {
     return null;
   }
 
@@ -75,7 +75,7 @@ function CategoryHeading({ name, fleetComposition, altCol = true }) {
   shipCountsArr.sort((a, b) => a[0] - b[0]);
   return (
     <>
-      {!altCol && name === "Alts" ? (
+      {!altCol && name === "小号 ALT" ? (
         <CatHeadingSmall>
           <HeadingStyle name={name} shipCountsArr={shipCountsArr} />
         </CatHeadingSmall>
@@ -128,15 +128,15 @@ ColumnWaitlistDOM.Category = styled.div`
 function ColumnWaitlist({ waitlist, onAction, fleetComposition, altCol }) {
   var categories = [];
   var categoryIndex = {};
-  _.forEach(waitlist.categories, (category, i) => {
-    if (!(category === "Alts" && !altCol)) {
+  forEach(waitlist.categories, (category, i) => {
+    if (!(category === "小号 ALT" && !altCol)) {
       categories.push([category, []]);
       categoryIndex[category] = i;
     }
   });
-  _.forEach(waitlist.waitlist, (entry) => {
-    _.forEach(entry.fits, (fit) => {
-      const categoryI = categoryIndex[altCol && fit.is_alt ? "Alts" : fit.category];
+  forEach(waitlist.waitlist, (entry) => {
+    forEach(entry.fits, (fit) => {
+      const categoryI = categoryIndex[altCol && fit.is_alt ? "小号 ALT" : fit.category];
       categories[categoryI][1].push(
         <div key={fit.id}>
           <XCard entry={entry} fit={fit} onAction={onAction} />
@@ -222,12 +222,14 @@ const MatrixWaitlistDOM = styled.table`
   }
 `;
 
-function MatrixWaitlist({ waitlist, onAction, fleetComposition }) {
+function MatrixWaitlist({ waitlist, onAction, fleetComposition, altCol = true }) {
   var categories = [];
   var categoryIndex = {};
   forEach(waitlist.categories, (category, i) => {
-    categories.push([category, []]);
-    categoryIndex[category] = i;
+    if (!(category === "小号 ALT" && !altCol)) {
+      categories.push([category, []]);
+      categoryIndex[category] = i;
+    }
   });
 
   return (
@@ -243,7 +245,8 @@ function MatrixWaitlist({ waitlist, onAction, fleetComposition }) {
         {waitlist.waitlist.map((entry) => {
           var byCategory = categories.map((cat) => []);
           forEach(entry.fits, (fit) => {
-            byCategory[categoryIndex[fit.category]].push(
+            const categoryI = categoryIndex[altCol && fit.is_alt ? "小号 ALT" : fit.category];
+            byCategory[categoryI].push(
               <div key={fit.id}>
                 <XCard fit={fit} entry={entry} onAction={onAction} />
               </div>
@@ -274,16 +277,18 @@ RowWaitlistDOM.Category = styled.div`
   }
 `;
 
-function RowWaitlist({ waitlist, onAction, fleetComposition }) {
+function RowWaitlist({ waitlist, onAction, fleetComposition, altCol = true }) {
   var categories = [];
   var categoryIndex = {};
   forEach(waitlist.categories, (category, i) => {
-    categories.push([category, []]);
-    categoryIndex[category] = i;
+    if (!(category === "小号 ALT" && !altCol)) {
+      categories.push([category, []]);
+      categoryIndex[category] = i;
+    }
   });
   forEach(waitlist.waitlist, (entry) => {
     forEach(entry.fits, (fit) => {
-      const categoryI = categoryIndex[fit.is_alt ? "Alts" : fit.category];
+      const categoryI = categoryIndex[altCol && fit.is_alt ? "小号 ALT" : fit.category];
       categories[categoryI][1].push(
         <div key={fit.id}>
           <XCard key={fit.id} entry={entry} fit={fit} onAction={onAction} />
