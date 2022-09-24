@@ -24,11 +24,13 @@ CREATE TABLE `refresh_token` (
   CONSTRAINT `refresh_token_ibfk_1` FOREIGN KEY (`character_id`) REFERENCES `character` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE `admins` (
-  `character_id` bigint NOT NULL,
-  `level` varchar(64) NOT NULL,
-  PRIMARY KEY (`character_id`),
-  CONSTRAINT `admins_ibfk_1` FOREIGN KEY (`character_id`) REFERENCES `character` (`id`)
+CREATE TABLE `admin` (
+    `character_id` BIGINT PRIMARY KEY NOT NULL,
+    `role` VARCHAR(64) NOT NULL,
+    `granted_at` BIGINT NOT NULL,
+    `granted_by_id` BIGINT NOT NULL,
+    CONSTRAINT `character_role` FOREIGN KEY (`character_id`) REFERENCES `character` (`id`),
+    CONSTRAINT `admin_character` FOREIGN KEY (`granted_by_id`) REFERENCES `character` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `alt_character` (
@@ -95,6 +97,16 @@ CREATE TABLE `fleet_activity` (
   CONSTRAINT `fleet_activity_ibfk_1` FOREIGN KEY (`character_id`) REFERENCES `character` (`id`),
   CONSTRAINT `fleet_activity_chk_1` CHECK ((`has_left` in (0,1))),
   CONSTRAINT `fleet_activity_chk_2` CHECK ((`is_boss` in (0,1)))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `announcement` (
+  `id` bigint NOT NULL,
+  `message` TEXT NOT NULL,
+  `character_id` bigint NOT NULL,
+  `created_at` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `character_id` (`character_id`),
+  CONSTRAINT `created_by` FOREIGN KEY (`character_id`) REFERENCES `character` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `skill_current` (
@@ -195,3 +207,31 @@ CREATE TABLE `waitlist_entry_fit` (
   CONSTRAINT `waitlist_entry_fit_ibfk_4` FOREIGN KEY (`implant_set_id`) REFERENCES `implant_set` (`id`),
   CONSTRAINT `waitlist_entry_fit_chk_1` CHECK ((`approved` in (0,1)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `badge` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(64) NOT NULL UNIQUE,
+  `exclude_badge_id` BIGINT NULL,
+  CONSTRAINT `exclude_badge` FOREIGN KEY (`exclude_badge_id`) REFERENCES `badge` (`id`) ON DELETE SET NULL
+);
+
+CREATE TABLE `badge_assignment` (
+  `characterId` BIGINT NOT NULL,
+  `badgeId` BIGINT NOT NULL,
+  `grantedById` BIGINT NULL,
+  `grantedAt` BIGINT NOT NULL,
+  CONSTRAINT `characterId` FOREIGN KEY (`characterId`) REFERENCES `character` (`id`),
+  CONSTRAINT `badgeId` FOREIGN KEY (`badgeId`) REFERENCES `badge` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `grantedById` FOREIGN KEY (`grantedById`) REFERENCES `character` (`id`)
+);
+
+INSERT INTO badge (name) VALUES ('BASTION');
+INSERT INTO badge (name) VALUES ('LOGI');
+INSERT INTO badge (name) VALUES ('RETIRED-LOGI');
+INSERT INTO badge (name) VALUES ('WEB');
+
+-- Logi and Retired logi are exclusive, update rows to reflect this
+SELECT @logi_id := id FROM badge WHERE name='LOGI';
+SELECT @retired_logi_id := id FROM badge WHERE name='RETIRED-LOGI';
+UPDATE badge SET exclude_badge_id=@retired_logi_id WHERE id=@logi_id;
+UPDATE badge SET exclude_badge_id=@logi_id WHERE id=@retired_logi_id;

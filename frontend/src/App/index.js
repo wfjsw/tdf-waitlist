@@ -33,13 +33,14 @@ const GlobalStyle = createGlobalStyle`
     line-height: 1.5;
     font-weight: 400;
 	${(props) =>
+    props.sticker &&
     props.theme.sticker &&
     `
 	  &:before {
 	   content:'';
 	   pointer-events:none;
 	   position:fixed;
-	   z-index:9001;
+	   z-index:100;
 	   width:100%;
 	   height:100%;
 	   background-position:100% 100%;
@@ -85,6 +86,11 @@ export default class App extends React.Component {
           window.localStorage.getItem("theme") in theme &&
           window.localStorage.getItem("theme")) ||
         "Light",
+      sticker:
+        ((window.localStorage &&
+          window.localStorage.getItem("Sticker") &&
+          window.localStorage.getItem("Sticker")) ||
+          "true") === "true",
     };
   }
 
@@ -158,7 +164,7 @@ export default class App extends React.Component {
   render() {
     return (
         <ThemeProvider theme={theme[this.state.theme]}>
-          <GlobalStyle />
+          <GlobalStyle sticker={this.state.sticker} />
           <ToastContext.Provider value={this.addToast}>
           <EventContext.Provider value={this.state.events}>
             <AuthContext.Provider value={this.state.auth}>
@@ -173,6 +179,13 @@ export default class App extends React.Component {
                         this.setState({ theme: newTheme });
                         if (window.localStorage) {
                           window.localStorage.setItem("theme", newTheme);
+                        }
+                      }}
+                      sticker={this.state.sticker}
+                      setSticker={(newSticker) => {
+                        this.setState({ sticker: newSticker });
+                        if (window.localStorage) {
+                          window.localStorage.setItem("Sticker", newSticker);
                         }
                       }}
                     />

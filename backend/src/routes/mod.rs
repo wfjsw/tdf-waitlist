@@ -1,7 +1,9 @@
-mod acl;
+mod announcements;
 mod auth;
+mod badges;
 mod bans;
 mod categories;
+mod commanders;
 mod fittings;
 mod fleet;
 mod healthcheck;
@@ -26,8 +28,9 @@ pub fn routes() -> Vec<rocket::Route> {
         pilot::routes(),
         history::routes(),
         window::routes(),
-        acl::routes(),
         bans::routes(),
+        badges::routes(),
+        commanders::routes(),
         modules::routes(),
         search::routes(),
         categories::routes(),
@@ -39,6 +42,7 @@ pub fn routes() -> Vec<rocket::Route> {
         notes::routes(),
         skillplans::routes(),
         fittings::routes(),
+        announcements::routes(),
     ]
     .concat()
 }

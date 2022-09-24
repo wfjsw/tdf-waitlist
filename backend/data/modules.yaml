@@ -10,13 +10,13 @@ alternatives:
 
   - - - Agency 'Pyrolancea' DB3 Dose I
     - - Agency 'Pyrolancea' DB5 Dose II
-    - - Agency 'Pyrolancea' DB7 Dose III
-    - - Agency 'Pyrolancea' DB9 Dose IV
+      - Agency 'Pyrolancea' DB7 Dose III
+      - Agency 'Pyrolancea' DB9 Dose IV
 
   - - - Agency 'Overclocker' SB3 Dose I
     - - Agency 'Overclocker' SB5 Dose II
-    - - Agency 'Overclocker' SB7 Dose III
-    - - Agency 'Overclocker' SB9 Dose IV
+      - Agency 'Overclocker' SB7 Dose III
+      - Agency 'Overclocker' SB9 Dose IV
 
   - - - Synth Drop Booster
     - - Standard Drop Booster
@@ -80,14 +80,21 @@ alternatives:
     - - Ogre II
     - - "'Augmented' Ogre"
       - Heavy Mutated Drone
+      
+  - - - Federation Navy 1600mm Steel Plates
+      - Syndicate 1600mm Steel Plates
+    - - Imperial Navy 1600mm Steel Plates
+    - - Large Abyssal Armor Plates
 
 from_meta:
   # Automagically determine alternatives
   # Base is the lowest allowed meta level alternative module
   # If modulegroup is found in the fit & it's equal or higher to the meta level of the standard fit it is allowed
   # You have to manually add it's abyssal variant as shown below
+  # Optional alternative module can be added (does not add all meta's of that alternative)
   - base: Sensor Booster II
   - base: Tracking Computer II
+    alternative: Large Micro Jump Drive
   - base: Supratidal Entropic Disintegrator II
   - base: Imperial Navy Drone Damage Amplifier
   - base: Remote Tracking Computer II
@@ -99,7 +106,6 @@ from_meta:
     abyssal: 500MN Abyssal Microwarpdrive
   - base: Gistum A-Type 10MN Afterburner
     abyssal: 10MN Abyssal Afterburner
-
   - base: Federation Navy Stasis Webifier
     abyssal: Abyssal Stasis Webifier
   - base: True Sansha Heat Sink
@@ -110,9 +116,6 @@ from_meta:
     abyssal: Abyssal Entropic Radiation Sink
   - base: Republic Fleet Large Cap Battery
     abyssal: Large Abyssal Cap Battery
-
-  - base: Imperial Navy 1600mm Steel Plates
-    abyssal: Large Abyssal Armor Plates
   - base: Imperial Navy 800mm Steel Plates
     abyssal: Medium Abyssal Armor Plates
   - base: Damage Control I
@@ -174,3 +177,29 @@ identification: # Modules/groups we use to look at to figure out what we're flyi
   - Medium Remote Repair Augmentor II
   - Medium Capacitor Control Circuit II
   - Large Hybrid Locus Coordinator II
+
+cargo_ignore: # Cargo modules that do not need to be in the fit to be approved
+  - Large Micro Jump Drive
+  - Imperial Navy 1600mm Steel Plates
+
+# Make auto approval amount for drugs different
+# To be used togheter with the alternatives config
+# only applies to ships that have the item in detect
+drugs_approve_override:
+  - detect: Agency 'Pyrolancea' DB5 Dose II
+    remove: # These are removed from the expected fit
+      - Agency 'Pyrolancea' DB7 Dose III
+      - Agency 'Pyrolancea' DB9 Dose IV
+    add: # Set new requirements, here 1 db5 or better and 2 db3 or better
+      - name: Agency 'Pyrolancea' DB3 Dose I
+        amount: 2
+      - name: Agency 'Pyrolancea' DB5 Dose II
+        amount: 1
+  - detect: Agency 'Overclocker' SB7 Dose III
+    remove:
+      - Agency 'Overclocker' SB3 Dose I
+      - Agency 'Overclocker' SB7 Dose III
+      - Agency 'Overclocker' SB9 Dose IV
+    add:
+      - name: Agency 'Overclocker' SB5 Dose II
+        amount: 2

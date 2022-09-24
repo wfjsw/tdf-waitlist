@@ -1,5 +1,7 @@
 # Anchoring
 
+---
+
 Below you will find visual and written guidance on anchoring, bastion points and when to Micro Jump Drive. However please remember this is for guidance only, different situations and events can and will change the course of your anchoring, bastion activation and MJD, so it is by no means a "one and only" guide. Hopefully it will serve to help newer pilots to understand where and when to anchor, bastion, & MJD. If you are flying a Megathron you should follow the Vindicator guidance. All guidance is subject to change too so check back as we continue to figure out the best way to keep our ISK/h going up. **Remember, FC instructions overrule any guidance!**
 
 Note: All images are shown as a top-down overview of each room/site with the tactical overlay enabled. Each picture shows the start of 1st wave for each site/room.
@@ -87,7 +89,7 @@ Logistics:
 
 Bastions:
 
-- Paladins one cycle bastion as soon as you land on beacon (S1) once bastion cycle ends jump forward to anchor (S2) and add about 15km elevation. When you land **burn back toward beacon 10km**. You are aiming to land between the 2nd and 3rd wave spawns for Conflag optimal range. Continue to bastion through 2nd and 3rd wave spawns shooting Conflag, once 3rd wave is nearly dead align to next anchor (S3) and add roughly another 15km elevation to align _(this is a good time to bring in drones!)_. Once final wave spawns shoot Intaki, Outuni then jump to anchor (S3), bastion until 4th wave is nearly dead and make sure to use Conflag, try to be out of bastion before the site finishes to ensure quick exit.
+- Paladins one cycle bastion as soon as you land on beacon (S1) once bastion cycle ends jump forward to anchor (S2) and add about 15km elevation. When you land **burn back toward beacon 10km**. You are aiming to land between the 2nd and 3rd wave spawns for Conflag optimal range. Continue to bastion through 2nd and 3rd wave spawns shooting Conflag, once 3rd wave is nearly dead align to next anchor (S3) and add roughly another 15km elevation to align _(this is a good time to bring in drones!)_. Once final wave spawns shoot Intaki, then jump to anchor (S3), bastion until 4th wave is nearly dead and make sure to use Conflag, try to be out of bastion before the site finishes to ensure quick exit.
 - Kronos should burn toward first anchor (K1) once at max speed bastion one cycle (see x enroute to K1) once bastion ends continue toward (K1) to anchor for 2nd and 3rd wave, bastion through 2nd wave and aim to finish your bastion cycle midway or earlier through 3rd wave, allowing you time to burn to (K2) anchor for 4th wave. Being in position in 4th wave is more important than being in bastion during 3rd wave as Kronos will apply more damage in 4th wave than any other!
 
 Vindicator:

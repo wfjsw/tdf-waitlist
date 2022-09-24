@@ -13,15 +13,19 @@ import { Pilot } from "../Pages/Pilot";
 import { Home } from "../Pages/Home";
 import { Legal } from "../Pages/Legal";
 // import { Fits } from "../Pages/Fits";
-// import { Guide, /*GuideIndex*/ } from "../Pages/Guide";
-
+// import { Guide, /*GuideIndex*/, BadgeIndex } from "../Pages/Guide";
 import { AuthRoutes } from "../Pages/Auth";
 // import { ISKh, ISKhCalc } from "../Pages/ISKh";
 
-const Guide = lazy(() => import("../Pages/Guide/lazy.guide"));
+// const Guide = lazy(() => import("../Pages/Guide/lazy.guide"));
+const BadgeIndex = lazy(() => import("../Pages/Guide/lazy.badgeindex"));
 const FCRoutes = lazy(() => import("../Pages/FC/lazy"));
 
 const SentryRoutes = Sentry.withSentryReactRouterV6Routing(Switch)
+
+function LoginRequired() {
+  return <b>Login Required!</b>;
+}
 
 export function Routes() {
   const authContext = React.useContext(AuthContext);
@@ -31,16 +35,18 @@ export function Routes() {
       <Route path="/legal" element={<Legal />} />
 
       {/* <Route path="/guide" element={<GuideIndex />} /> */}
-      <Route path="/guide/:guideName" element={<Guide />} />
+      {/* <Route path="/guide/:guideName" element={<Guide />} /> */}
+      <Route path="/badges" element={<BadgeIndex />} />
       {/* <Route path="/isk-h/calc" element={<ISKhCalc />} />
       <Route path="/isk-h" element={<ISKh />} />
       <Route path="/fits" element={<Fits />} />
       <Route path="/skills/plans" element={<Plans />} />*/}
+      <Route path="/xup" element={authContext ? <Xup /> : <LoginRequired />} />
+      <Route path="/waitlist" element={authContext ? <Waitlist /> : <LoginRequired />} />
+      <Route path="/pilot" element={<Pilot />} />
+
       {authContext && (
         <>
-          <Route path="/xup" element={<Xup />} />
-          <Route path="/pilot" element={<Pilot />} />
-          <Route path="/waitlist" element={<Waitlist />} />
           <Route path="/fc/*" element={<FCRoutes />} />
           <Route path="/skills/*" element={<SkillRoutes />} />
         </>

@@ -171,14 +171,6 @@ async fn callback(
 
     let branca = Branca::new(&app.token_secret).unwrap();
 
-    // let ip_bytes = match client_ip.0 {
-    //     IpAddr::V4(ip) => [
-    //         ip.octets(),
-    //         [ 0xff, 0xff, 0xff, 0xff ], [ 0xff, 0xff, 0xff, 0xff], [ 0xff, 0xff, 0xff, 0xff ],
-    //     ].concat().try_into().unwrap(),
-    //     IpAddr::V6(ip) => ip.octets(),
-    // };
-
     let state = match state {
         Some(state) => state,
         None => return Err(Madness::BadRequest("No state provided".to_owned())),
@@ -204,38 +196,6 @@ async fn callback(
         .esi_client
         .process_authorization_code(code)
         .await?;
-
-    // let logged_in_account = if input.state.is_some()
-    //     && input.state.unwrap() == "alt"
-    //     && account.is_some()
-    // {
-    //     let account = account.unwrap();
-    //     if account.id != character_id {
-    //         let is_admin = sqlx::query!(
-    //             "SELECT character_id FROM admins WHERE character_id = $1",
-    //             character_id
-    //         )
-    //         .fetch_optional(app.get_db())
-    //         .await?;
-
-    //         if is_admin.is_some() {
-    //             return Err(Madness::BadRequest(
-    //                 "Character is flagged as a main and cannot be added as an alt".to_string(),
-    //             ));
-    //         }
-
-    //         sqlx::query!(
-    //                 "INSERT INTO alt_character (account_id, alt_id) VALUES ($1, $2) ON CONFLICT (account_id, alt_id) DO NOTHING",
-    //                 account.id,
-    //                 character_id
-    //             )
-    //             .execute(app.get_db())
-    //             .await?;
-    //     }
-    //     account.id
-    // } else {
-    //     character_id
-    // };
 
     Ok(crate::core::auth::create_cookie(app, character_id, Some("/".to_owned())))
 }

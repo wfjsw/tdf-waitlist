@@ -19,7 +19,7 @@ import {
 } from "@fortawesome/pro-solid-svg-icons";
 import { sortBy, isFinite } from "lodash";
 
-import egoldBadge from "../Guide/guides/badges/egold.png";
+import egoldBadge from "../Guide/badges/egold.png";
 
 import { SkillDisplay } from "../../Components/SkillDisplay";
 import { Box } from "../../Components/Box";
@@ -33,6 +33,7 @@ const badgeOrder = [
   "WEB",
   "BASTION",
   "LOGI",
+  "RETIRED-LOGI",
   "AMULET",
   "WARPSPEED",
   "HYBRID",

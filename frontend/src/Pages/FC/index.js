@@ -2,13 +2,15 @@ import React from "react";
 import { Route, Routes } from "react-router-dom";
 import { AuthContext } from "../../contexts";
 import { BanRoutes } from "./Bans";
-import { ACLRoutes } from "./ACL";
 import { Fleet, FleetRegister } from "./Fleet";
 import { Search } from "./Search";
 // import { Statistics } from "./Statistics";
 import { FleetCompHistory } from "./FleetCompHistory";
 import { NoteAdd } from "./NoteAdd";
+import { Announcements } from "./Announcements";
 import { FCMenu, GuideFC } from "./FCMenu";
+import { View as BadgesView } from "./Badges";
+import { View as CommandersView } from "./Commanders";
 
 const Statistics = React.lazy(() => import("./lazy.statistics"));
 
@@ -17,7 +19,14 @@ export function FCRoutes() {
   return (
     <Routes>
       <Route path="bans/*" element={<BanRoutes />} />
-      <Route path="acl/*" element={<ACLRoutes />} />
+      
+      {authContext && authContext.access["badges-manage"] && (
+        <Route path="/fc/badges" element={<BadgesView />} />
+      )}
+
+      {authContext && authContext.access["access-manage"] && (
+        <Route path="/fc/commanders" element={<CommandersView />} />
+      )}
 
       <Route path="/" element={<FCMenu />} />
       <Route path="stats" element={<Statistics />} />
@@ -31,6 +40,9 @@ export function FCRoutes() {
       )}
       {authContext.access["fleet-view"] && (
         <Route path="trainee" element={<GuideFC />} />
+      )}
+      {authContext.access["waitlist-tag:HQ-FC"] && (
+        <Route path="/fc/announcement" element={<Announcements />} />
       )}
     </Routes>
   );

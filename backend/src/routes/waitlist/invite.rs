@@ -34,7 +34,8 @@ async fn invite(
                 wef.character_id wef_character_id,
 				wef.is_alt wef_is_alt,
                 we.account_id we_account_id,
-                fitting.hull fitting_hull
+                fitting.hull fitting_hull,
+                EXISTS (SELECT character_id FROM admin WHERE character_id=we.account_id) as \"has_acl!: bool\"
             FROM waitlist_entry_fit wef
             JOIN waitlist_entry we ON wef.entry_id=we.id
             JOIN fitting ON wef.fit_id = fitting.id
@@ -85,7 +86,7 @@ async fn invite(
             input.character_id,
             Some(ESIScope::Fleets_WriteFleet_v1),
         )
-        .await?; // XXX Deal with error 520 which comes with a message indicating what's wrong
+        .await?;
 
     app.sse_client
         .submit(vec![Event::new(

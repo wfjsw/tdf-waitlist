@@ -3,6 +3,7 @@ import { useLocation } from "react-router";
 import { AuthContext, /*ToastContext, */ EventContext, WaitlistContext } from "../../contexts";
 import { apiCall, /*errorToaster, */ useApi } from "../../api";
 import { InputGroup, Button, Buttons, NavButton } from "../../Components/Form";
+import { InfoAnnouncement } from "../../Components/Announcement";
 import {
   ColumnWaitlist,
   CompactWaitlist,
@@ -171,7 +172,12 @@ export function Waitlist() {
     return <em>{t("loading")}</em>;
   }
   if (!waitlistData.open) {
-    return <em>{t("notopen")}</em>;
+    return (
+      <>
+        <InfoAnnouncement id={2} />
+        <em>{t("notopen")}</em>
+      </>
+    );
   }
   const handleChange = () => {
     setAltCol(!altCol);
@@ -189,6 +195,7 @@ export function Waitlist() {
 
   return (
     <>
+      <InfoAnnouncement id={2} />
       <Buttons>
         <InputGroup>
           <NavButton variant={myEntry ? null : "primary"} to={`/xup?wl=${waitlistId}`}>
@@ -219,15 +226,17 @@ export function Waitlist() {
             {t("rows")}
           </Button>
           {authContext.access["waitlist-view"] && (
-            <Button active={displayMode === "notepad"} onClick={(evt) => setDisplayMode("notepad")}>
-              {t("notepad")}
-            </Button>
+              <Button active={displayMode === "notepad"} onClick={(evt) => setDisplayMode("notepad")}>
+                {t("notepad")}
+              </Button>
           )}
         </InputGroup>
         {(displayMode === "columns" || displayMode === "rows" || displayMode === "matrix") && (
-          <Button onClick={handleChange}>
-            <FontAwesomeIcon icon={faColumns} />
-          </Button>
+          <InputGroup>
+            <Button onClick={handleChange}>
+              <FontAwesomeIcon icon={faColumns} />
+            </Button>
+          </InputGroup>
         )}
         {!altCol && (
           <CategoryHeading name="小号 ALT" fleetComposition={fleetComposition} altCol={altCol} />

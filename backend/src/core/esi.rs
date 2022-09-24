@@ -12,6 +12,39 @@ pub struct ESIClient {
     raw: ESIRawClient,
 }
 
+pub struct EsiErrorReason {
+    pub error: String,
+    pub details: String,
+}
+
+impl EsiErrorReason {
+    // CCP returns a poorly structured error when fleet invites fail
+    // so we need to provide special parsing logic to grab the error
+    // message. If the POST error is related to anything else, we should
+    // be able to grab the error property without additional logic.
+    pub fn new(body: String) -> Self {
+        let json: Result<serde_json::Value, serde_json::Error> = serde_json::from_str(&body);
+
+        match json {
+            Ok(json) => {
+                let body_value = json.get("error").unwrap().to_string();
+                let parts: Vec<&str> = body_value.split(", ").collect();
+
+                return EsiErrorReason {
+                    error: parts[0].to_string().replace('"', ""),
+                    details: "".to_string(), // We could grab the remaining JSON value but
+                };                           // I don't know how to do it without the logic
+            }                                // crashing due to index out of bounds
+            Err(e) => {
+                return EsiErrorReason {
+                    error: "Failed to parse ESI error reason".to_string(),
+                    details: e.to_string(),
+                };
+            }
+        };
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct OAuthTokenResponse {
     access_token: String,
@@ -47,6 +80,8 @@ pub enum ESIError {
     HTTPError(reqwest::Error),
     #[error("ESI returned {0}")]
     Status(u16),
+    #[error("{1}")]
+    WithMessage(u16, String),
     #[error("no ESI token found")]
     NoToken,
     #[error("missing ESI scope")]
@@ -377,25 +412,34 @@ impl ESIRawClient {
         access_token: Option<String>,
     ) -> Result<reqwest::Response, ESIError> {
 
-        match access_token {
+        let response = match access_token {
             Some(token) => 
-                Ok(self
+                self
                     .http
                     .post(url)
                     .json(input)
                     .bearer_auth(&token)
                     .send()
-                    .await?
-                    .error_for_status()?),
-            None =>
-                Ok(self
+                    .await?,
+            None => 
+                self
                     .http
                     .post(url)
                     .json(input)
                     .send()
-                    .await?
-                    .error_for_status()?)
-        }
+                    .await?,
+        };
+
+        if let Err(err) = response.error_for_status_ref() {
+            let response_body = response.text().await?;
+            let payload: EsiErrorReason = EsiErrorReason::new(response_body);
+            return Err(ESIError::WithMessage(
+                err.status().unwrap().as_u16(),
+                payload.error,
+            ));
+        };
+
+        Ok(response)
     }
 }
 
@@ -492,7 +536,7 @@ impl ESIClient {
                 .await?;
 
                 sqlx::query!(
-                    "DELETE FROM admins WHERE character_id = $1",
+                    "DELETE FROM admin WHERE character_id = $1",
                     character.id,
                 )
                 .execute(&mut tx)
@@ -523,16 +567,17 @@ impl ESIClient {
                 match role {
                     Some(role) => {
                         sqlx::query!(
-                            "INSERT INTO admins (character_id, level) VALUES ($1, $2) ON CONFLICT (character_id) DO UPDATE SET level = $2",
+                            "INSERT INTO admin (character_id, role, granted_at) VALUES ($1, $2, $3) ON CONFLICT (character_id) DO UPDATE SET role = $2, granted_at = $3",
                             auth.character_id,
-                            role
+                            role,
+                            sqlx::types::chrono::Utc::now().naive_utc().timestamp()
                         )
                         .execute(&mut tx)
                         .await?;
                     },
                     None => {
                         sqlx::query!(
-                            "DELETE FROM admins WHERE character_id = $1",
+                            "DELETE FROM admin WHERE character_id = $1",
                             auth.character_id,
                         )
                         .execute(&mut tx)
@@ -542,7 +587,7 @@ impl ESIClient {
             },
             None => {
                 sqlx::query!(
-                    "DELETE FROM admins WHERE character_id = $1",
+                    "DELETE FROM admin WHERE character_id = $1",
                     auth.character_id,
                 )
                 .execute(&mut tx)

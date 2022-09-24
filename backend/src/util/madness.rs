@@ -27,6 +27,8 @@ pub enum Madness {
     #[error("access denied")]
     AccessDenied,
     #[error("{0}")]
+    Forbidden(String),
+    #[error("{0}")]
     NotFound(&'static str),
 }
 
@@ -61,7 +63,10 @@ impl<'r> rocket::response::Responder<'r, 'static> for Madness {
                 ESIError::HTTPError(_) | ESIError::DatabaseError(_) | ESIError::Status(_) | ESIError::JWTError(_),
             ) => Status::InternalServerError,
 
+            Self::ESIError(ESIError::WithMessage(code, _body)) => Status { code: *code },
+
             Self::NotFound(_) => Status::NotFound,
+            Self::Forbidden(_) => Status::Forbidden,
 
             Self::FitError(_) | Self::BadRequest(_) | Self::TypeError(_) => Status::BadRequest,
         };

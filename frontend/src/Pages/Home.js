@@ -1,12 +1,16 @@
 import { Content, PageTitle } from "../Components/Page";
-// import { NavLink } from "react-router-dom";
-// import { NavButton } from "../Components/Form";
+import { NavButton, InputGroup } from "../Components/Form";
 import { useTranslation } from "react-i18next";
+import { InfoAnnouncement } from "../Components/Announcement";
 
 export function Home() {
   const { t } = useTranslation();
   return (
     <>
+      <InfoAnnouncement id={1} />
+      <InputGroup>
+        <NavButton to={`/legal`}>Legal</NavButton>
+      </InputGroup>
       <Content>
         <PageTitle>{t("title")}</PageTitle>
         <p>Report bugs/issues here: <a href="https://jira.winterco.org/projects/WAITLIST/issues/">WinterCo. JIRA - Project Waitlist</a></p>
@@ -75,9 +79,6 @@ export function Home() {
           advantage and this helps to teach you many of the ingame mechanics you may face.
         </p> */}
       </Content>
-      {/* <NavButton variant={"secondary"} to={`/legal`}>
-        Legal
-      </NavButton> */}
     </>
   );
 }

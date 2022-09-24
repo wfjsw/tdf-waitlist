@@ -1,5 +1,7 @@
 # Becoming an FC
 
+---
+
 ## Tryouts
 
 TDF is always looking for new FC's.
@@ -38,7 +40,7 @@ Progressing to the next stage requires passing **VAN FLEET** (yes seriously), It
 
 In this stage, efficiency, safety and in depth knowledge will be taught and expected. You will need to master contesting, knowing how the agro mechanics work. Knowing NPC's and why we tag them the way we do. Fleet control will also need to be mastered.
 
-Progressing to the next stage requires passing **BUS FLEET** along with getting at least one other +1 from any FC Trainer or council.
+Progressing to the next stage requires passing **BUS FLEET** along with getting at least one other +1 from any FC Trainer or council that was not the active backseat.
 
 ### Probationary FC
 
@@ -46,31 +48,31 @@ FC's that just got their HQ tags, they need 6 logi and cannot train nestors or n
 
 ## Tagging
 
-You can have this open on your phone in your tryouts and/or first trainee fleets.
-Make sure to set shortcuts for tagging, you need the sequencers 1 - 9 and A - I, a seperate shortcut for X tag and a shortcut for broadcast align. **Some of these tags can be done differently, you will learn what you prefer while FCing.**
+You can have this open on your phone in your tryouts and/or first trainee fleets. Make sure to set shortcuts for tagging, you need the sequencers 1 - 9 and A - I, a seperate shortcut for X tag and a shortcut for broadcast align. **Some of these tags can be done differently, you will learn what you prefer while FCing.**
 
 **The scrams are TOADS** : Tama, Outuni, Auga, Deltole, Schmaeel
 
-**N : Numbers**
-**L : Letters**
+**N = Numbers**
 
-### TPPH
+**L = Letters**
+
+## TPPH
 
 #### Room 1
 
-- N : Outuni, Osti
-- L : Auga, Vylade
+- N : Osti, Vylade
+- L : Auga, Outuni
 
 #### Room 2
 
-- N : Romi, Auga, Deltole, Osti
-- L : Mara, Anthem
+- N : Romi, Deltole, Osti
+- L : Mara, Auga, Antem
 
 #### Room 3
 
 **Wave 1**
 
-- N : Mara, Romi, Osti
+- N : Tama, Eystur, Mara, Romi, Osti
 - 1 X tag Osti
 
 **Wave 2**
@@ -80,10 +82,10 @@ Make sure to set shortcuts for tagging, you need the sequencers 1 - 9 and A - I,
 
 **Wave 3**
 
-- N : Arnon, Outuni, Osti
-- L : Anthem, Yulai
+- N : Arnon, Outuni, Osti, Antem, Yulai
+  HHH's Vylade
 
-### NRF
+## NRF
 
 **Wave 1**
 
@@ -93,19 +95,20 @@ Make sure to set shortcuts for tagging, you need the sequencers 1 - 9 and A - I,
 **Wave 2**
 
 - N : Uitra, Romi, Osti
-- L : Anthem, Yulai
+- L : Antem, Yulai
 
 **Wave 3**
 
 - N : Mara, Romi, Vylade
-- L : Anthem, Yulai
+- L : Antem, Yulai
 
 **Wave 4**
 
 - N : Intaki, Outuni, Deltole, Osti
-- L : Anthem, Yulai
+- L : Antem, Yulai
 
-### TCRC
+## TCRC
 
 - N : Deltole, Outuni
-- X tag's on schmaels (see [Scouting](/guide/scouting) guide)
+- X : MTAC Squad Schmaeels, Auga (see [Scouting](/guide/scouting) guide)
+- 1 : All other Schmaeels

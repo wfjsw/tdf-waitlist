@@ -1,2 +1,4 @@
+[defaults]
+url = https://bugreport.indexyz.me/
 [auth]
 token=c628d4b051fd4a66ad65286150104226a423ba3a2ba644ab8d218ba37b5aef0c
