@@ -5,7 +5,7 @@ import { CellHead, Table, TableHead, Row, TableBody, Cell } from "../../Componen
 import { ToastContext } from "../../contexts";
 import { PageTitle } from "../../Components/Page";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircle, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faCircle, faTimes } from "@fortawesome/pro-solid-svg-icons";
 import { ThemeContext } from "styled-components";
 import { Modal } from "../../Components/Modal";
 import { Box } from "../../Components/Box";

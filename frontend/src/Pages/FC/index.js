@@ -19,30 +19,25 @@ export function FCRoutes() {
   return (
     <Routes>
       <Route path="bans/*" element={<BanRoutes />} />
-      
+
       {authContext && authContext.access["badges-manage"] && (
-        <Route path="/fc/badges" element={<BadgesView />} />
+        <Route path="badges" element={<BadgesView />} />
       )}
 
       {authContext && authContext.access["access-manage"] && (
-        <Route path="/fc/commanders" element={<CommandersView />} />
+        <Route path="commanders" element={<CommandersView />} />
       )}
 
       <Route path="/" element={<FCMenu />} />
-      <Route path="stats" element={<Statistics />} />
       <Route path="fleet" element={<Fleet />} />
       <Route path="fleet/register" element={<FleetRegister />} />
       <Route path="search" element={<Search />} />
       <Route path="fleet-comp-history" element={<FleetCompHistory />} />
       <Route path="notes/add" element={<NoteAdd />} />
-      {authContext.access["stats-view"] && (
-        <Route path="documentation" element={<GuideFC />} />
-      )}
-      {authContext.access["fleet-view"] && (
-        <Route path="trainee" element={<GuideFC />} />
-      )}
+      {authContext.access["stats-view"] && <Route path="stats" element={<Statistics />} />}
+      {authContext.access["fleet-view"] && <Route path="trainee" element={<GuideFC />} />}
       {authContext.access["waitlist-tag:HQ-FC"] && (
-        <Route path="/fc/announcement" element={<Announcements />} />
+        <Route path="announcement" element={<Announcements />} />
       )}
     </Routes>
   );

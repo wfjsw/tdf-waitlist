@@ -115,8 +115,12 @@ export default class App extends React.Component {
   }
 
   componentDidMount() {
-    processAuth((whoami) => this.setState({ auth: whoami }));
-    this.updateWaitlistOverview();
+    processAuth((whoami) => {
+      this.setState({ auth: whoami })
+      if (whoami) {
+        this.updateWaitlistOverview();
+      }
+    });
   }
 
   updateWaitlistOverview() {

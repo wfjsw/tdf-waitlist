@@ -10,7 +10,7 @@ import CharacterName from "../../Components/CharacterName";
 import { AddButton, FilterComponents, RevokeButton } from "./commanders/TableControls";
 import CommanderModal from "./commanders/CommanderModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUserEdit } from "@fortawesome/free-solid-svg-icons";
+import { faUserEdit } from "@fortawesome/pro-solid-svg-icons";
 
 const Header = styled.div`
   padding-bottom: 10px;
@@ -105,7 +105,7 @@ const special_sort = (charA, charB) => {
 
 // export default CommandersPage;
 
-export const View = () => {
+export function View() {
   const [data, refreshData] = useApi("/api/commanders");
   const [filters, setFilters] = React.useState({ role: null, name: "" });
 
@@ -129,7 +129,7 @@ export const View = () => {
       sortFunction: (rowA, rowB) => special_sort(rowA.granted_by, rowB.granted_by),
       hide: "md",
       grow: 1,
-      selector: (row) => <CharacterName {...row.granted_by} />,
+      selector: (row) => row.granted_by.id !== 0 ? <CharacterName {...row.granted_by} /> : "Identity Provider",
     },
     {
       name: "Granted At",
@@ -142,7 +142,7 @@ export const View = () => {
       compact: true,
       grow: 1,
       minWidth: "46",
-      selector: (row) => (
+      selector: (row) => row.granted_by.id !== 0 && (
         <Buttons>
           <CommanderModal character={row.character} current={row.role} handleRefresh={refreshData}>
             <IconBtn>
@@ -201,4 +201,4 @@ export const View = () => {
       />
     </>
   );
-};
+}

@@ -33,7 +33,7 @@ NavBar.Header = styled.div`
 `;
 
 NavBar.LogoLink = styled(NavLink).attrs((props) => ({
-  activeClassName: "active",
+  className: props.isActive ? "active" : '',
 }))`
   margin-right: 2em;
   flex-grow: 0;
@@ -59,7 +59,7 @@ NavBar.Menu = styled.div`
   flex-grow: 1;
 `;
 NavBar.Link = styled(NavLink).attrs((props) => ({
-  activeClassName: "active",
+  className: props.isActive ? "active" : "",
 }))`
   padding: 1em;
   color: ${(props) => props.theme.colors.accent4};
@@ -88,6 +88,13 @@ NavBar.Main = styled.div`
   flex-wrap: wrap;
   @media (max-width: 480px) {
     display: none;
+  }
+`;
+NavBar.Waitlist = styled.div`
+  margin-right: 2em;
+  @media (max-width: 480px) {
+    margin-right: 0em;
+    width: 100%;
   }
 `;
 NavBar.Name = styled.div`
@@ -146,7 +153,7 @@ export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme, sti
               <WaitlistContext.Consumer>
                 {(waitlists) => waitlists && (
                   <NavBar.Waitlist>
-                    <InputGroup fixed style={{ marginRight: "2em" }}>
+                    <InputGroup fixed>
                       <Select
                         value={waitlists.active}
                         onChange={(evt) =>
@@ -166,7 +173,7 @@ export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme, sti
               </WaitlistContext.Consumer>
 
               <NavBar.Name>
-                <InputGroup fixed style={{ marginRight: "2em" }}>
+                <InputGroup fixed>
                   <Select
                     value={whoami.current.id}
                     onChange={(evt) =>

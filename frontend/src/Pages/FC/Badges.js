@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import { Button, Input, Select } from "../../Components/Form";
 import CharacterName from "../../Components/CharacterName";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faPlus } from "@fortawesome/pro-solid-svg-icons";
 import styled from "styled-components";
 import Table from "../../Components/DataTable";
 import { apiCall, useApi } from "../../api";
@@ -146,7 +146,7 @@ const FilterComponents = ({ badgeOptions, filters, onChange, onClear }) => {
   );
 };
 
-export const View = () => {
+export function View() {
   const [badges, updateData] = useApi("/api/badges");
   const [characters, setChracters] = React.useState(null);
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -296,4 +296,4 @@ export const View = () => {
       />
     </>
   );
-};
+}

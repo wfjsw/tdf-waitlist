@@ -162,7 +162,7 @@ theme.AMOLED = merge({}, theme.Dark, {
   },
 });
 
-theme["Midnight Blue"] = _.merge({}, theme.Dark, {
+theme["Midnight Blue"] = merge({}, theme.Dark, {
   colors: {
     background: "#0a0a2c",
     accent1: "#1e1e40",
@@ -285,7 +285,7 @@ theme["Chocola"] = merge({}, theme.Dark, {
     "https://raw.githubusercontent.com/doki-theme/doki-theme-github/master/assets/stickers/nekoPara/chocola/dark/chocola_dark.png",
 });
 
-theme["Chocola"] = _.merge({}, theme.Dark, {
+theme["Chocola"] = merge({}, theme.Dark, {
   colors: {
     background: "#30292c",
     active: "#FF357C",
@@ -326,7 +326,7 @@ theme["Chocola"] = _.merge({}, theme.Dark, {
   },
   sticker: "https://i.imgur.com/ohDedR4.png",
 });
-theme["Vanilla"] = _.merge({}, theme.Dark, {
+theme["Vanilla"] = merge({}, theme.Dark, {
   colors: {
     background: "#2d2f43",
     active: "#9bf8ff",

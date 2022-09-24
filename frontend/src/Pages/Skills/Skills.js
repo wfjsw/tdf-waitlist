@@ -24,6 +24,7 @@ export function Skills() {
 
 function SkillsAuth({ authContext }) {
   const queryParams = new URLSearchParams(useLocation().search);
+  const { t } = useTranslation("skills");
   const navigate = useNavigate();
 
   var characterId = queryParams.get("character_id") || authContext.current.id;

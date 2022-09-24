@@ -43,7 +43,7 @@ impl<'r> rocket::response::Responder<'r, 'static> for CookieSetter {
         // XXX: Secure is set via a parameter in CookieSetter, but we can get this from the App
         let mut response = Response::new();
         let mut cookie = format!(
-            "{}={}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2678400",
+            "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2678400",
             COOKIE_NAME, self.0
         );
         if self.1 {

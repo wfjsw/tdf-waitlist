@@ -9,7 +9,7 @@ import { Content, PageTitle } from "../../Components/Page";
 import { FitDisplay, ImplantDisplay } from "../../Components/FitDisplay";
 import { Box } from "../../Components/Box";
 import { Modal } from "../../Components/Modal";
-import { InfoAnnouncement } from "../../Components/Announcement";
+// import { InfoAnnouncement } from "../../Components/Announcement";
 
 import howToX from "./howtox.png";
 
@@ -118,7 +118,7 @@ export function Xup() {
             value={eft}
             style={{ width: "100%", marginBottom: "1em" }}
           />
-          <InfoAnnouncement id={3} />
+          {/* <InfoAnnouncement id={3} /> */}
           <div>
             <label>
               <input type="checkbox" checked={alt} onChange={handleChange} />

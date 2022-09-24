@@ -8,7 +8,7 @@ import { faBars, faTimes } from "@fortawesome/pro-solid-svg-icons";
 import { useTranslation } from 'react-i18next';
 
 const Links = styled(NavLink).attrs((props) => ({
-  activeClassName: "active",
+  className: props.isActive ? "active" : "",
 }))`
   padding: 1em;
   color: ${(props) => props.theme.colors.accent4};

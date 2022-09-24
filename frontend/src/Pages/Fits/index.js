@@ -3,7 +3,7 @@ import { InputGroup, Button, Buttons } from "../../Components/Form";
 import { Fitout, ImplantOut } from "./FittingSortDisplay";
 import { PageTitle } from "../../Components/Page";
 import { useLocation, useNavigate } from "react-router-dom";
-import { InfoAnnouncement } from "../../Components/Announcement";
+// import { InfoAnnouncement } from "../../Components/Announcement";
 
 export function Fits() {
   const queryParams = new URLSearchParams(useLocation().search);
@@ -27,7 +27,7 @@ function FitsDisplay({ tier, setTier = null }) {
 
   return (
     <>
-      <InfoAnnouncement id={4} />
+      {/* <InfoAnnouncement id={4} /> */}
       <PageTitle>HQ FITS</PageTitle>
       {setTier != null && (
         <Buttons style={{ marginBottom: "0.5em" }}>

@@ -3,7 +3,7 @@ import { useLocation } from "react-router";
 import { AuthContext, /*ToastContext, */ EventContext, WaitlistContext } from "../../contexts";
 import { apiCall, /*errorToaster, */ useApi } from "../../api";
 import { InputGroup, Button, Buttons, NavButton } from "../../Components/Form";
-import { InfoAnnouncement } from "../../Components/Announcement";
+// import { InfoAnnouncement } from "../../Components/Announcement";
 import {
   ColumnWaitlist,
   CompactWaitlist,
@@ -174,7 +174,7 @@ export function Waitlist() {
   if (!waitlistData.open) {
     return (
       <>
-        <InfoAnnouncement id={2} />
+        {/* <InfoAnnouncement id={2} /> */}
         <em>{t("notopen")}</em>
       </>
     );
@@ -195,7 +195,7 @@ export function Waitlist() {
 
   return (
     <>
-      <InfoAnnouncement id={2} />
+      {/* <InfoAnnouncement id={2} /> */}
       <Buttons>
         <InputGroup>
           <NavButton variant={myEntry ? null : "primary"} to={`/xup?wl=${waitlistId}`}>

@@ -1,21 +1,27 @@
 import { Content, PageTitle } from "../Components/Page";
 import { NavButton, InputGroup } from "../Components/Form";
 import { useTranslation } from "react-i18next";
-import { InfoAnnouncement } from "../Components/Announcement";
+// import { InfoAnnouncement } from "../Components/Announcement";
 
 export function Home() {
   const { t } = useTranslation();
   return (
     <>
-      <InfoAnnouncement id={1} />
-      <InputGroup>
-        <NavButton to={`/legal`}>Legal</NavButton>
-      </InputGroup>
+      {/* <InfoAnnouncement id={1} /> */}
       <Content>
         <PageTitle>{t("title")}</PageTitle>
-        <p>Report bugs/issues here: <a href="https://jira.winterco.org/projects/WAITLIST/issues/">WinterCo. JIRA - Project Waitlist</a></p>
+        <p>
+          Report bugs/issues here:{" "}
+          <a href="https://jira.winterco.org/projects/WAITLIST/issues/">
+            WinterCo. JIRA - Project Waitlist
+          </a>
+        </p>
 
-        <p>The site is a modified fork of the TDF waitlist tool. Original code was released under MIT licence and is available at <a href="https://github.com/the-ditanian-fleet/waitlist/">the-ditanian-fleet/waitlist</a></p>
+        <p>
+          The site is a modified fork of the TDF waitlist tool. Original code was released under MIT
+          licence and is available at{" "}
+          <a href="https://github.com/the-ditanian-fleet/waitlist/">the-ditanian-fleet/waitlist</a>
+        </p>
 
         {/* <h2>Welcome to The Ditanian Fleet</h2>
         <p>
@@ -78,6 +84,9 @@ export function Home() {
           electronic warfare, capacitor warfare as well as playing on speed and signature to their
           advantage and this helps to teach you many of the ingame mechanics you may face.
         </p> */}
+        <InputGroup>
+          <NavButton to={`/legal`}>Legal</NavButton>
+        </InputGroup>
       </Content>
     </>
   );
