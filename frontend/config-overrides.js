@@ -5,22 +5,42 @@ const {
 const { DefinePlugin } = require('webpack');
 
 const SentryPlugin = require("@sentry/webpack-plugin");
+const CompressionPlugin = require("compression-webpack-plugin");
+const zlib = require("zlib");
 
 const release = Math.floor(Date.now() / 1000).toString()
 
 const addSentryPlugin = config => {
     config.plugins.push(
         new SentryPlugin({
-            release: process.env.RELEASE,
+            release, // : process.env.RELEASE,
             include: "./build",
-            url: 'https://bugreport.indexyz.me/',
-            org: 'sentry',
-            project: 'waitlist-frontend',
-            release,
+            url: "https://sentry.suyou.org/",
+            org: "winter-coalition",
+            project: "waitlist-frontend",
         }),
         new DefinePlugin({
             RELEASE: JSON.stringify(release),
         }),
+        new CompressionPlugin({
+            filename: "[path][base].gz",
+            algorithm: "gzip",
+            test: /\.(js|css|html|svg)$/,
+            threshold: 0,
+            minRatio: 0.8,
+        }),
+        new CompressionPlugin({
+            filename: "[path][base].br",
+            algorithm: "brotliCompress",
+            test: /\.(js|css|html|svg)$/,
+            compressionOptions: {
+                params: {
+                    [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
+                },
+            },
+            threshold: 0,
+            minRatio: 0.8,
+        })
     );
     return config;
 }

@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { NavLink } from "react-router-dom";
 import styled from "styled-components";
 
 const Avatar = styled.img`
@@ -11,7 +12,7 @@ const Avatar = styled.img`
   }
 `;
 
-const A = styled.a`
+const A = styled(NavLink)`
   color: ${(props) => props.theme.colors.highlight.text};
   text-decoration: none;
   &:hover {
@@ -30,7 +31,7 @@ const CharacterName = ({ avatar, avatarSize, id, name, noLink }) => {
           loading="lazy"
         />
       )}
-      {!noLink ? <A href={`/fc/search?query=${name}`}>{name}</A> : name}
+      {!noLink ? <A end to={`/fc/search?query=${name}`}>{name}</A> : name}
     </>
   );
 };

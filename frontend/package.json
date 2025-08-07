@@ -38,6 +38,7 @@
     "webpack-sources": "^3.2.3"
   },
   "devDependencies": {
+    "compression-webpack-plugin": "^10.0.0",
     "customize-cra": "^1.0.0",
     "eslint": "^8.24.0",
     "eslint-config-react-app": "^7.0.1",

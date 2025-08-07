@@ -87,8 +87,10 @@ async fn list(
             },
             role: cmdr.role.unwrap(),
             granted_by: Character {
-                id: cmdr.admin_id.unwrap_or(0),
-                name: cmdr.admin_name.unwrap_or("System".to_string()),
+                // id: cmdr.admin_id.unwrap_or(0),
+                // name: cmdr.admin_name.unwrap_or("System".to_string()),
+                id: cmdr.admin_id,
+                name: cmdr.admin_name,
             },
             granted_at: cmdr.granted_at.unwrap(),
         })
