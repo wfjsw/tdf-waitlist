@@ -14,7 +14,7 @@ import {
   CategoryHeading,
 } from "./displaymodes";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faColumns } from "@fortawesome/pro-solid-svg-icons";
+import { faColumns } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "../../Util/query";
 import { useTranslation } from "react-i18next";
 

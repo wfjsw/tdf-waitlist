@@ -1,4 +1,4 @@
-import { faUserPlus, faUserTimes } from "@fortawesome/pro-solid-svg-icons";
+import { faUserPlus, faUserTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect } from "react";
 import styled from "styled-components";

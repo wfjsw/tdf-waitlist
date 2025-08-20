@@ -15,7 +15,7 @@ import {
   faCommentAlt,
   faShieldAlt,
   faUserShield,
-} from "@fortawesome/pro-solid-svg-icons";
+} from "@fortawesome/free-solid-svg-icons";
 
 const guideData = {};
 function importAll(r) {

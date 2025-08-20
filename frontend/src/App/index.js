@@ -10,7 +10,7 @@ import { Routes } from "./routes";
 import { Container } from "react-awesome-styled-grid";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPowerOff } from "@fortawesome/pro-solid-svg-icons";
+import { faPowerOff } from "@fortawesome/free-solid-svg-icons";
 
 import { Menu } from "./Menu";
 import "./reset.css";

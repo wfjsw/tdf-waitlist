@@ -9,7 +9,7 @@ import { BorderedBox } from "../../Components/NoteBox";
 import { sortBy, entries } from "lodash";
 import { useNavigate, useLocation } from "react-router";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faRotate } from "@fortawesome/pro-solid-svg-icons";
+import { faRotate } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
 
 const marauders = ["Paladin", "Kronos"];

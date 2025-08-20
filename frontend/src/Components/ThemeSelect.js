@@ -3,7 +3,7 @@ import React from "react";
 import themes from "../App/theme";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faMoon, faSun, faKissWinkHeart } from "@fortawesome/pro-solid-svg-icons";
+import { faMoon, faSun, faKissWinkHeart } from "@fortawesome/free-solid-svg-icons";
 import { Button, Radio } from "../Components/Form";
 import { Modal } from "../Components/Modal";
 import { Box } from "../Components/Box";

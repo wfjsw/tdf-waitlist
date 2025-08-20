@@ -7,7 +7,7 @@ import { InputGroup, Select, NavButton, AButton } from "../Components/Form";
 import { EventNotifier } from "../Components/Event";
 import { ThemeSelect } from "../Components/ThemeSelect";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faRotate, faBug, faHourglassClock } from "@fortawesome/pro-solid-svg-icons";
+import { faRotate, faBug, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { NavLinks, MobileNavButton, MobileNav } from "./Navigation";
 import { useTranslation } from 'react-i18next';
 
@@ -118,7 +118,7 @@ export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme, sti
         variant="secondary"
         disabled
       >
-        <FontAwesomeIcon icon={faHourglassClock} />
+        <FontAwesomeIcon icon={faSpinner} spinPulse />
       </AButton>
     );
   } else if (whoami === null) {

@@ -16,7 +16,7 @@ import {
   faPlus,
   faExclamationTriangle,
   faTimes,
-} from "@fortawesome/pro-solid-svg-icons";
+} from "@fortawesome/free-solid-svg-icons";
 import { sortBy, isFinite } from "lodash";
 
 import egoldBadge from "../Guide/badges/egold.png";

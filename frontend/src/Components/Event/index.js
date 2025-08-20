@@ -3,7 +3,7 @@ import React from "react";
 import { AuthContext, EventContext, WaitlistContext } from "../../contexts";
 import { useTranslation } from "react-i18next";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBell, faBellSlash } from "@fortawesome/pro-solid-svg-icons";
+import { faBell, faBellSlash } from "@fortawesome/free-solid-svg-icons";
 import { Modal } from "../Modal";
 import { Button } from "../Form";
 import { Box } from "../Box";

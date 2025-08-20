@@ -4,7 +4,7 @@ import { Box } from "../../Components/Box";
 import { FitDisplay } from "../../Components/FitDisplay";
 import { Modal } from "../../Components/Modal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faClipboard, faGraduationCap, faPen, faPlane } from "@fortawesome/pro-solid-svg-icons";
+import { faClipboard, faGraduationCap, faPen, faPlane } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "../../Components/Badge";
 import { formatDatetime, formatDuration } from "../../Util/time";
 import { Content } from "../../Components/Page";

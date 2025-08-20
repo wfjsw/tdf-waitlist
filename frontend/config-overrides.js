@@ -12,13 +12,13 @@ const release = Math.floor(Date.now() / 1000).toString()
 
 const addSentryPlugin = config => {
     config.plugins.push(
-        new SentryPlugin({
-            release, // : process.env.RELEASE,
-            include: "./build",
-            url: "https://sentry.suyou.org/",
-            org: "winter-coalition",
-            project: "waitlist-frontend",
-        }),
+        // new SentryPlugin({
+        //     release, // : process.env.RELEASE,
+        //     include: "./build",
+        //     url: "https://sentry.suyou.org/",
+        //     org: "winter-coalition",
+        //     project: "waitlist-frontend",
+        // }),
         new DefinePlugin({
             RELEASE: JSON.stringify(release),
         }),

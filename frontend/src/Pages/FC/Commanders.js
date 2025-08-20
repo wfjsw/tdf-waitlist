@@ -10,7 +10,7 @@ import CharacterName from "../../Components/CharacterName";
 import { AddButton, FilterComponents, RevokeButton } from "./commanders/TableControls";
 import CommanderModal from "./commanders/CommanderModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUserEdit } from "@fortawesome/pro-solid-svg-icons";
+import { faUserEdit } from "@fortawesome/free-solid-svg-icons";
 
 const Header = styled.div`
   padding-bottom: 10px;

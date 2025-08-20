@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { apiCall, toaster } from "../api";
 import { isEmpty } from "lodash";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPaste } from "@fortawesome/pro-solid-svg-icons";
+import { faPaste } from "@fortawesome/free-solid-svg-icons";
 import { ToastContext } from "../contexts";
 import { Badge } from "./Badge";
 
