@@ -20,7 +20,8 @@ const addSentryPlugin = config => {
         //     project: "waitlist-frontend",
         // }),
         new DefinePlugin({
-            RELEASE: JSON.stringify(release),
+          RELEASE: JSON.stringify(release),
+          SENTRY_DSN: JSON.stringify(process.env.SENTRY_DSN)
         }),
         new CompressionPlugin({
             filename: "[path][base].gz",

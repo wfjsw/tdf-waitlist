@@ -65,7 +65,8 @@
       "jsx-a11y/anchor-is-valid": "off"
     },
     "globals": {
-      "RELEASE": true
+      "RELEASE": true,
+      "SENTRY_DSN": true
     }
   },
   "browserslist": {
