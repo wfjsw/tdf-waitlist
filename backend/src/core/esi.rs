@@ -139,16 +139,16 @@ impl From<reqwest::Error> for ESIError {
 impl ESIRawClient {
     pub fn new(client_id: String, client_secret: String) -> ESIRawClient {
 
-        let mut buf = Vec::new();
-        File::open("/usr/local/share/ca-certificates/origin_ca_ecc_root.crt").unwrap().read_to_end(&mut buf).unwrap();
+        // let mut buf = Vec::new();
+        // File::open("/usr/local/share/ca-certificates/origin_ca_ecc_root.crt").unwrap().read_to_end(&mut buf).unwrap();
 
-        // create a certificate
-        let cert = reqwest::Certificate::from_pem(&buf).unwrap();
+        // // create a certificate
+        // let cert = reqwest::Certificate::from_pem(&buf).unwrap();
 
         ESIRawClient {
             http: reqwest::Client::builder()
                 .user_agent("Waitlist (https://github.com/TvdW/tdf-waitlist)")
-                .add_root_certificate(cert)
+                // .add_root_certificate(cert)
                 // .danger_accept_invalid_certs(true)
                 .build()
                 .unwrap(),
