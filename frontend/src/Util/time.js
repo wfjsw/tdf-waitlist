@@ -20,5 +20,5 @@ export function formatDuration(durationSeconds) {
 }
 
 export function formatDatetime(dateObj) {
-  return dateObj.toLocaleString("en-GB", { timeZone: "UTC" });
+  return dateObj.toLocaleString(undefined, { timeZone: "UTC" });
 }
