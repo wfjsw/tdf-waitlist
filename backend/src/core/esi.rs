@@ -558,8 +558,11 @@ impl ESIClient {
                 let role = (|g: &BTreeSet<String>| {
                     maprole!(g, "IT", "admin");
                     maprole!(g, "Exec", "council");
-                    maprole!(g, "T2-FC", "fc-trainer");
+                    maprole!(g, "T2-FC", "fc");
+                    maprole!(g, "[AUTO] T2-FC", "fc");
                     maprole!(g, "Junior-FC", "fc");
+                    maprole!(g, "[AUTO] Junior-FC", "fc");
+                    maprole!(g, "[AUTO] T1-FC", "fc");
                     maprole!(g, "[AUTO] 故土FC", "fc");
                     None
                 })(groups);
