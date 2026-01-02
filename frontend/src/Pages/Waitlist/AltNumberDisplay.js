@@ -12,11 +12,11 @@ export class AltNumberDisplay extends React.Component {
     if (altNumber > 0) {
       return (
         <span title={altNumber + " alt(s) exists in the fleet"}>
-          <Badge variant="warning">{altNumber}x</Badge>
+          <Badge variant="danger">{altNumber}x</Badge>
         </span>
       );
     } else {
-      return <Badge variant="secondary">New</Badge>;
+      return <Badge variant="success">New</Badge>;
     }
   }
 }
