@@ -140,7 +140,7 @@ async fn list_bans(
             BanListResponseEntry {
                 kind: ban.kind,
                 id: ban.id,
-                expires_at: ban.expires_at.map(|ts| ts.timestamp()),
+                expires_at: ban.expires_at.map(|ts| ts.and_utc().timestamp()),
                 name,
                 added_by,
                 reason: ban.reason,

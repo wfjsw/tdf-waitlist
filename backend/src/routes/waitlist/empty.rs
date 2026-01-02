@@ -34,14 +34,14 @@ async fn empty_waitlist(
         ",
         input.waitlist_id
     )
-    .execute(&mut tx)
+    .execute(&mut *tx)
     .await?;
 
     sqlx::query!(
         "DELETE FROM waitlist_entry WHERE waitlist_id = $1",
         input.waitlist_id
     )
-    .execute(&mut tx)
+    .execute(&mut *tx)
     .await?;
 
     tx.commit().await?;

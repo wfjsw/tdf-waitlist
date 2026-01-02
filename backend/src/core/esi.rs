@@ -512,7 +512,7 @@ impl ESIClient {
                 "DELETE FROM alt_character WHERE account_id = $1 OR alt_id = $1",
                 character.id,
             )
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await?;
 
             sqlx::query!(
@@ -520,7 +520,7 @@ impl ESIClient {
                 character.id,
                 character.name
             )
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await?;
 
         }
@@ -533,14 +533,14 @@ impl ESIClient {
                     auth.character_id,
                     character.id,
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await?;
 
                 sqlx::query!(
                     "DELETE FROM admin WHERE character_id = $1",
                     character.id,
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await?;
             }
 
@@ -551,7 +551,7 @@ impl ESIClient {
             auth.character_id,
             &auth.alt_ids.as_ref().unwrap().iter().map(|c| c.id).collect::<Vec<_>>(),
         )
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await?;
 
         macro_rules! maprole {
@@ -582,9 +582,9 @@ impl ESIClient {
                             "INSERT INTO admin (character_id, role, granted_at) VALUES ($1, $2, $3) ON CONFLICT (character_id) DO UPDATE SET role = $2, granted_at = $3",
                             auth.character_id,
                             role,
-                            sqlx::types::chrono::Utc::now().naive_utc().timestamp()
+                            sqlx::types::chrono::Utc::now().naive_utc().and_utc().timestamp()
                         )
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                     },
                     None => {
@@ -592,7 +592,7 @@ impl ESIClient {
                             "DELETE FROM admin WHERE character_id = $1",
                             auth.character_id,
                         )
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                     }
                 }
@@ -602,7 +602,7 @@ impl ESIClient {
                     "DELETE FROM admin WHERE character_id = $1",
                     auth.character_id,
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await?;
             }
         }
@@ -616,7 +616,7 @@ impl ESIClient {
             expiry_timestamp,
             scopes,
         )
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await?;
 
         sqlx::query!(
@@ -625,7 +625,7 @@ impl ESIClient {
             auth.refresh_token.as_ref().unwrap(),
             scopes,
         )
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await?;
 
         tx.commit().await?;
@@ -758,25 +758,25 @@ impl ESIClient {
             "DELETE FROM access_token WHERE character_id = $1",
             account_id
         )
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await?;
         sqlx::query!(
             "DELETE FROM access_token_esi WHERE character_id = $1",
             account_id
         )
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await?;
         sqlx::query!(
             "DELETE FROM refresh_token WHERE character_id = $1",
             account_id
         )
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await?;
 
         let alts = sqlx::query!(
             "SELECT alt_id FROM alt_character WHERE account_id = $1",
             account_id
-        ).fetch_all(&mut tx)
+        ).fetch_all(&mut *tx)
         .await?;
 
         for alt in alts {
@@ -784,7 +784,7 @@ impl ESIClient {
                 "DELETE FROM access_token_esi WHERE character_id = $1",
                 alt.alt_id
             )
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await?;
         }
 

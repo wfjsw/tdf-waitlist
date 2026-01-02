@@ -42,10 +42,10 @@ async fn fleet_status(
         WHERE fleet.is_updating = true"
     ).fetch_all(app.get_db()).await?.into_iter()
     .map(|fleet| FleetStatusFleet{
-        id: fleet.id.unwrap(),
+        id: fleet.id,
         boss: Character{
-            id: fleet.boss_id.unwrap(),
-            name: fleet.name.unwrap(),
+            id: fleet.boss_id,
+            name: fleet.name,
             account_id: fleet.account_id,
         }
     }).collect();
@@ -251,20 +251,20 @@ async fn register_fleet(
 
     let mut tx = app.get_db().begin().await?;
     sqlx::query!("DELETE FROM fleet_squad WHERE fleet_id = $1", input.fleet_id)
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await?;
     sqlx::query!(
         "INSERT INTO fleet (id, boss_id, is_updating) VALUES ($1, $2, true) ON CONFLICT (id) DO UPDATE SET boss_id = $2, is_updating = true",
         input.fleet_id,
         input.character_id
     )
-    .execute(&mut tx)
+    .execute(&mut *tx)
     .await?;
 
     for category in crate::data::categories::categories() {
         if let Some((wing_id, squad_id)) = input.assignments.get(&category.id) {
             sqlx::query!("INSERT INTO fleet_squad (fleet_id, wing_id, squad_id, category) VALUES ($1, $2, $3, $4)",
-            input.fleet_id, wing_id, squad_id, category.id).execute(&mut tx).await?;
+            input.fleet_id, wing_id, squad_id, category.id).execute(&mut *tx).await?;
         } else {
             return Err(Madness::BadRequest(format!(
                 "Missing assignment for {}",

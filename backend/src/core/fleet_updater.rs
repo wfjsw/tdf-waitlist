@@ -86,10 +86,10 @@ impl FleetUpdater {
                     // 403/404 => Delete the fleet, move on
                     let mut tx = self.get_db().begin().await?;
                     sqlx::query!("DELETE FROM fleet_squad WHERE fleet_id = $1", fleet_id)
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                     sqlx::query!("DELETE FROM fleet WHERE id = $1", fleet_id)
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                     tx.commit().await?;
                     return Ok(());
@@ -138,31 +138,31 @@ impl FleetUpdater {
                     .fetch_all(self.get_db())
                     .await?
                     .into_iter()
-                    .map(|r| (r.character_id.unwrap(), r))
+                    .map(|r| (r.character_id, r))
                     .collect();
 
             let mut tx = self.get_db().begin().await?;
             for &id in &member_ids {
                 if let Some(record) = on_waitlist.get(&id) {
-                    changed.insert(record.waitlist_id.unwrap());
-                    if record.is_alt.unwrap() {
+                    changed.insert(record.waitlist_id);
+                    if record.is_alt {
                         sqlx::query!(
                             "DELETE FROM waitlist_entry_fit WHERE character_id = $1",
                             record.character_id
                         )
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                     } else {
                         sqlx::query!(
                             "DELETE FROM waitlist_entry_fit WHERE entry_id = $1 AND is_alt = false",
                             record.entry_id
                         )
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                     }
                 }
             }
-            sqlx::query!("DELETE FROM waitlist_entry WHERE id NOT IN (SELECT entry_id FROM waitlist_entry_fit)").execute(&mut tx).await?;
+            sqlx::query!("DELETE FROM waitlist_entry WHERE id NOT IN (SELECT entry_id FROM waitlist_entry_fit)").execute(&mut *tx).await?;
             tx.commit().await?;
 
             changed.into_iter().collect()
@@ -178,7 +178,7 @@ impl FleetUpdater {
                 "SELECT * FROM fleet_activity WHERE fleet_id = $1 AND has_left = false",
                 fleet_id
             )
-            .fetch_all(&mut tx)
+            .fetch_all(&mut *tx)
             .await?
             .into_iter()
             .map(|r| (r.character_id, r))
@@ -205,7 +205,7 @@ impl FleetUpdater {
                                 current_time,
                                 stored.id
                             )
-                            .execute(&mut tx)
+                            .execute(&mut *tx)
                             .await?;
                         }
                     } else {
@@ -214,7 +214,7 @@ impl FleetUpdater {
                             current_time,
                             stored.id
                         )
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                         should_insert = true;
                     }
@@ -226,7 +226,7 @@ impl FleetUpdater {
                     sqlx::query!(
                         "INSERT INTO fleet_activity (character_id, fleet_id, first_seen, last_seen, is_boss, hull, has_left) VALUES ($1, $2, $3, $4, $5, $6, false)",
                         member.character_id, fleet_id, current_time, current_time, is_boss, member.ship_type_id,
-                    ).execute(&mut tx).await?;
+                    ).execute(&mut *tx).await?;
                     new_fleet_comp = true;
                 }
             }
@@ -235,7 +235,7 @@ impl FleetUpdater {
             for (id, stored) in stored_in_fleet {
                 if !have_in_fleet.contains_key(&id) {
                     sqlx::query!("UPDATE fleet_activity SET has_left = true WHERE id = $1", stored.id)
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                     new_fleet_comp = true;
                 }
