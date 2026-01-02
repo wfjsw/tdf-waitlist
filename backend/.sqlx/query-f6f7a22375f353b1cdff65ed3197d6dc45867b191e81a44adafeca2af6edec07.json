@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id FROM ban WHERE kind = $1 AND id = $2 AND (expires_at IS NULL OR expires_at > $3)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Timestamp"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f6f7a22375f353b1cdff65ed3197d6dc45867b191e81a44adafeca2af6edec07"
+}

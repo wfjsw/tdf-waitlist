@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO fleet (id, boss_id, is_updating) VALUES ($1, $2, true) ON CONFLICT (id) DO UPDATE SET boss_id = $2, is_updating = true",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "17c9adffb57a3f2ed2e785625bcccfabd25fb908538be3a74f4068df7a4396f6"
+}

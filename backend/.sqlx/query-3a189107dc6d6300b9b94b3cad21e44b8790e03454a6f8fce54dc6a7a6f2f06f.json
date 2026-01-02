@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM badge_assignment WHERE characterid = $1 AND badgeId = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "characterid",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "badgeid",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "grantedbyid",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "grantedat",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "3a189107dc6d6300b9b94b3cad21e44b8790e03454a6f8fce54dc6a7a6f2f06f"
+}

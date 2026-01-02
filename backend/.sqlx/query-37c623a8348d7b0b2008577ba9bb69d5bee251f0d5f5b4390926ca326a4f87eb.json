@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, name, COALESCE(\"alt_character\".account_id, id) AS account_id\n        FROM \"character\" \n        LEFT JOIN \"alt_character\" ON id = \"alt_character\".alt_id \n        WHERE name ILIKE $1 LIMIT 25",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "account_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "37c623a8348d7b0b2008577ba9bb69d5bee251f0d5f5b4390926ca326a4f87eb"
+}

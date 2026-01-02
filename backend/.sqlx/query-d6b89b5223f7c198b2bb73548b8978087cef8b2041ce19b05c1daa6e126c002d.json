@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM badge_assignment WHERE characterId = $1 AND badgeId = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d6b89b5223f7c198b2bb73548b8978087cef8b2041ce19b05c1daa6e126c002d"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE waitlist_entry_fit SET approved=true WHERE id=$1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a9836524076208e8a13c6e00cfa50c2eaa3f0a94455070ce69325c89d8fb384a"
+}

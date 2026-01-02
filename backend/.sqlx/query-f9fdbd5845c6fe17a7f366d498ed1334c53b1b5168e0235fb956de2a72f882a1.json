@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM waitlist_entry_fit WHERE entry_id = $1 AND is_alt = false",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9fdbd5845c6fe17a7f366d498ed1334c53b1b5168e0235fb956de2a72f882a1"
+}

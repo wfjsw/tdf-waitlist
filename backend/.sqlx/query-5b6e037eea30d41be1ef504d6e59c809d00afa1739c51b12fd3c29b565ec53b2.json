@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE waitlist_entry_fit SET approved=false, review_comment = $1 WHERE id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5b6e037eea30d41be1ef504d6e59c809d00afa1739c51b12fd3c29b565ec53b2"
+}

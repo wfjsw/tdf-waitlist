@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO skill_current (character_id, skill_id, level) VALUES ($1, $2, $3) ON CONFLICT (character_id, skill_id) DO UPDATE SET level = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "af8471dcea20dd0a0274b1eaa20d2ff5b6e2f1f634fcc39636b4b1c24b0fee7d"
+}

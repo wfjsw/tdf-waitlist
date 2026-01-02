@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM access_token_esi WHERE character_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "character_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "access_token",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "expires",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "scopes",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6f7d67230733d88313df30535bf0b99ba25eeb49f5f96a70ac3f82e2c86a96c5"
+}

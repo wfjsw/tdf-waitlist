@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT entry_id, waitlist_id FROM waitlist_entry_fit wef\n            JOIN waitlist_entry we ON we.id=wef.entry_id WHERE wef.id=$1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "entry_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "waitlist_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "2252790bd2db7d505b0e4c62fb21b994dcf7963ab29969a4e09e34bd8973fdfb"
+}

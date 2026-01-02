@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT boss_id FROM fleet WHERE id = $1 AND is_updating = true",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "boss_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b7eb901476882c611cc6c14a2d8b4d71ac76330e1305b2b08346caf0998bdf62"
+}

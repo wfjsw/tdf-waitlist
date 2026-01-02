@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT \n        c.id, \n        c.name, \n        g.id AS \"grantedById!\", \n        g.name AS \"grantedByName!\", \n        b.id AS \"badge_id\", \n        b.name AS \"badge_name\", \n        grantedat \n      FROM \n        badge_assignment \n        JOIN \"character\" AS c ON characterId = c.id \n        JOIN \"character\" AS g ON grantedById = g.id \n        JOIN badge AS b ON badgeId = b.id \n      WHERE \n        badgeId = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "grantedById!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "grantedByName!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "badge_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "badge_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "grantedat",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "971d163dd028d0863224f469639683b74c0cf3d576096fb9418a7d0eafac87df"
+}

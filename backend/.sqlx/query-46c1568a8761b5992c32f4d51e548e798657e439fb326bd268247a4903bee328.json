@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id as \"id!\", name as \"name!\", \n            (\n                SELECT COUNT(*)\n                FROM badge_assignment AS badge_assignment\n                WHERE badge_assignment.badgeId = badge.id\n            ) AS \"member_count!: i64\"\n        FROM badge",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "member_count!: i64",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "46c1568a8761b5992c32f4d51e548e798657e439fb326bd268247a4903bee328"
+}

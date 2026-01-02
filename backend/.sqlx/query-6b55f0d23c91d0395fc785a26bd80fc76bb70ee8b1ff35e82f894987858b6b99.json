@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT badge.name FROM badge JOIN badge_assignment ON id = badge_assignment.BadgeId WHERE badge_assignment.CharacterId = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6b55f0d23c91d0395fc785a26bd80fc76bb70ee8b1ff35e82f894987858b6b99"
+}

@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT dna, hull, implants, logged_at FROM fit_history\n        JOIN fitting ON fit_history.fit_id=fitting.id\n        JOIN implant_set ON fit_history.implant_set_id=implant_set.id\n        WHERE character_id = $1\n        ORDER BY fit_history.id DESC\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dna",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "hull",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "implants",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "logged_at",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c1b72ef9bfa113b895cc8a948a2b8c1e56cd4f44800b6e666e829617031fb497"
+}

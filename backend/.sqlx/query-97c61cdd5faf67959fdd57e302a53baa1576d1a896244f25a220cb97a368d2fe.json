@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                we.id we_id,\n                we.joined_at we_joined_at,\n                we.account_id we_account_id,\n                wef.id wef_id,\n                wef.approved wef_approved,\n                wef.category wef_category,\n                wef.cached_time_in_fleet wef_cached_time_in_fleet,\n                wef.review_comment wef_review_comment,\n                wef.tags wef_tags,\n                wef.fit_analysis wef_fit_analysis,\n\t\t\t\twef.is_alt wef_is_alt,\n                char_wef.id char_wef_id,\n                char_wef.name char_wef_name,\n                char_we.id char_we_id,\n                char_we.name char_we_name,\n                fitting.dna fitting_dna,\n                fitting.hull fitting_hull,\n                implant_set.implants implant_set_implants\n            FROM waitlist_entry_fit wef\n            JOIN waitlist_entry we ON wef.entry_id = we.id\n            JOIN \"character\" char_wef ON wef.character_id = char_wef.id\n            JOIN \"character\" char_we ON we.account_id = char_we.id\n            JOIN fitting ON wef.fit_id = fitting.id\n            JOIN implant_set ON wef.implant_set_id = implant_set.id\n            WHERE we.waitlist_id = $1\n            ORDER BY we.id ASC, wef.id ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "we_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "we_joined_at",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "we_account_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "wef_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "wef_approved",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "wef_category",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "wef_cached_time_in_fleet",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "wef_review_comment",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "wef_tags",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 9,
+        "name": "wef_fit_analysis",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "wef_is_alt",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "char_wef_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "char_wef_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 13,
+        "name": "char_we_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "char_we_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 15,
+        "name": "fitting_dna",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 16,
+        "name": "fitting_hull",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 17,
+        "name": "implant_set_implants",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "97c61cdd5faf67959fdd57e302a53baa1576d1a896244f25a220cb97a368d2fe"
+}

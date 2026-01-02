@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT \n        role, \n        granted_at, \n        fc.id AS \"id\", \n        fc.name AS \"name\", \n        a.id AS \"admin_id\", \n        a.name AS \"admin_name\"\n      FROM \n        admin\n        INNER JOIN \"character\" AS fc ON character_id = fc.id \n        LEFT JOIN \"character\" AS a ON granted_by_id = a.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "role",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "granted_at",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "admin_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "admin_name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "e30ea3c5a90064ab9253d99d470e830e88464df3bb104fd855bf1d3833da0a37"
+}

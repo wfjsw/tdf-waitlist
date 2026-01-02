@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT entry_id, waitlist_id, character_id, is_alt FROM waitlist_entry_fit JOIN waitlist_entry ON waitlist_entry_fit.entry_id = waitlist_entry.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "entry_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "waitlist_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "character_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "is_alt",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f9a812eef6b4b86683170775b1d96cf62dedc119808f11b52bcfbae41e8f5f8e"
+}

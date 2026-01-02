@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT hull, first_seen, last_seen FROM fleet_activity WHERE character_id = $1 ORDER BY first_seen DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hull",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "first_seen",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "last_seen",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "528bbbf9bc339c714205c336b43962e05245400e84f5ccd600ee2906b6b099a4"
+}

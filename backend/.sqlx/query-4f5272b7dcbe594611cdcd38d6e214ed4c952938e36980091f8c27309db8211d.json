@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM fleet_activity WHERE fleet_id = $1 AND has_left = false",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "character_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "fleet_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "first_seen",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_seen",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "hull",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "has_left",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "is_boss",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4f5272b7dcbe594611cdcd38d6e214ed4c952938e36980091f8c27309db8211d"
+}

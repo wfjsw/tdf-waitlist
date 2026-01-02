@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ban (kind, id, expires_at, added_by, reason) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (kind, id) DO UPDATE SET expires_at = $3, added_by = $4, reason = $5",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int8",
+        "Timestamp",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cb8e136f0c4ac787887ef4145c87e19eb58364abca20b3481a019d3773a97fde"
+}

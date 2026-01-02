@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT fleet.id, boss_id, name, COALESCE(\"alt_character\".account_id, boss_id) AS account_id\n        FROM fleet \n        JOIN \"character\" ON fleet.boss_id = \"character\".id \n        LEFT JOIN \"alt_character\" ON fleet.boss_id = \"alt_character\".alt_id \n        WHERE fleet.is_updating = true",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "boss_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "account_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "476ee4dc9f47b10f18d47b136a6db43e75868cbdf52b9b1f4934f4ae636cd5d7"
+}

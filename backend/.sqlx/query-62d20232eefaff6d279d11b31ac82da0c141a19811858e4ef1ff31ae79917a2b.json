@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM alt_character WHERE account_id = $1 OR alt_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "62d20232eefaff6d279d11b31ac82da0c141a19811858e4ef1ff31ae79917a2b"
+}

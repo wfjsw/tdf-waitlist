@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                wef.id wef_id,\n                wef.category wef_category,\n                wef.character_id wef_character_id,\n\t\t\t\twef.is_alt wef_is_alt,\n                we.account_id we_account_id,\n                fitting.hull fitting_hull,\n                EXISTS (SELECT character_id FROM admin WHERE character_id=we.account_id) as \"has_acl!: bool\"\n            FROM waitlist_entry_fit wef\n            JOIN waitlist_entry we ON wef.entry_id=we.id\n            JOIN fitting ON wef.fit_id = fitting.id\n            WHERE wef.id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "wef_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "wef_category",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "wef_character_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "wef_is_alt",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "we_account_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "fitting_hull",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "has_acl!: bool",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "d98f1d46f71eb661a86adaec0d23e9672f6157954d1906b0cdcef379d86720af"
+}

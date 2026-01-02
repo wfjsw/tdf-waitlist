@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT b.name from badge_assignment AS ba INNER JOIN badge AS b on b.id = ba.badgeid WHERE ba.characterid = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "396bc78b542e5b2678b6732fe27f9e840b2abea27b364c1430667ccff94d91a1"
+}

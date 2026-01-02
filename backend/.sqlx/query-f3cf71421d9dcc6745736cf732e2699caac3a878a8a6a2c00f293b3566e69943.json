@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT author_id, author.name author_name, note, logged_at, COALESCE(\"alt_character\".account_id, author_id) AS account_id\n            FROM character_note\n            JOIN \"character\" author ON author.id = author_id\n            LEFT JOIN \"alt_character\" ON author_id = \"alt_character\".alt_id\n            WHERE character_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "author_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "author_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "note",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "logged_at",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "account_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "f3cf71421d9dcc6745736cf732e2699caac3a878a8a6a2c00f293b3566e69943"
+}
