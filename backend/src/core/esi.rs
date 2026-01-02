@@ -1,5 +1,6 @@
+use chrono::TimeZone as _;
 use serde::{Deserialize, Serialize};
-use std::{collections::{BTreeSet}, sync::Arc, fs::File, io::Read, ops::Sub};
+use std::{collections::{BTreeSet}, sync::Arc};
 
 struct ESIRawClient {
     http: reqwest::Client,
@@ -326,10 +327,10 @@ impl ESIRawClient {
             character_id,
             character_name: name,
             access_token: token.access_token,
-            access_token_expiry: chrono::DateTime::from_utc(
-                chrono::NaiveDateTime::from_timestamp(expires, 0),
-                chrono::Utc,
-            ) - chrono::Duration::seconds(60),
+            access_token_expiry: chrono::Utc.timestamp_opt(expires, 0)
+                .single()
+                .map(|t| t - chrono::Duration::seconds(60))
+                .unwrap_or_else(|| chrono::Utc::now()), // Fallback to now if timestamp is invalid
             refresh_token: token.refresh_token,
             scopes,
             alt_ids: Some(alts),
@@ -349,10 +350,7 @@ impl ESIRawClient {
             character_id,
             character_name: name,
             access_token: token.access_token,
-            access_token_expiry: chrono::DateTime::from_utc(
-                chrono::NaiveDateTime::from_timestamp(expires, 0),
-                chrono::Utc,
-            ) - chrono::Duration::seconds(60),
+            access_token_expiry: chrono::Utc.timestamp(expires, 0) - chrono::Duration::seconds(60),
             refresh_token: None,
             scopes,
             alt_ids: None,

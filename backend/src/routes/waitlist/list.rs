@@ -232,8 +232,8 @@ async fn list(
                     .map(|s| s.parse::<TypeID>().unwrap())
                     .collect(),
             );
-            if let Some(fit_analysis) = record.wef_fit_analysis {
-                this_fit.fit_analysis = rocket::serde::json::from_str(&fit_analysis).unwrap();
+            if let Some(fit_analysis) = record.wef_fit_analysis.as_deref() {
+                this_fit.fit_analysis = rocket::serde::json::from_str(fit_analysis).unwrap();
             }
         }
 

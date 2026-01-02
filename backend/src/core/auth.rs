@@ -66,7 +66,7 @@ fn decode_token(token: &str, secret: &[u8]) -> Result<AuthToken, AuthenticationE
         Ok(p) => p,
     };
 
-    let decoded: AuthToken = match rmp_serde::from_read_ref(&payload) {
+    let decoded: AuthToken = match rmp_serde::from_slice(&payload) {
         Err(_) => return Err(AuthenticationError::InvalidToken),
         Ok(d) => d,
     };
@@ -103,17 +103,17 @@ impl<'r> FromRequest<'r> for AuthenticatedAccount {
 
         let token = match req.cookies().get(COOKIE_NAME) {
             None => {
-                return Outcome::Failure((Status::Unauthorized, AuthenticationError::MissingCookie))
+                return Outcome::Error((Status::Unauthorized, AuthenticationError::MissingCookie));
             }
             Some(t) => match decode_token(t.value(), &app.token_secret) {
                 Ok(d) => d,
-                Err(e) => return Outcome::Failure((Status::Unauthorized, e)),
+                Err(e) => return Outcome::Error((Status::Unauthorized, e)),
             },
         };
         
         let valid_token = app.esi_client.check(token.account_id).await;
         if !valid_token {
-            return Outcome::Failure((Status::Unauthorized, AuthenticationError::InvalidToken));
+            return Outcome::Error((Status::Unauthorized, AuthenticationError::InvalidToken));
         }
 
         let access_level = match sqlx::query!(
@@ -124,7 +124,7 @@ impl<'r> FromRequest<'r> for AuthenticatedAccount {
         .await
         {
             Err(e) => {
-                return Outcome::Failure((
+                return Outcome::Error((
                     Status::InternalServerError,
                     AuthenticationError::DatabaseError(e),
                 ))
@@ -136,7 +136,7 @@ impl<'r> FromRequest<'r> for AuthenticatedAccount {
         let access_keys = match ACCESS_LEVELS.get(&access_level) {
             Some(l) => l,
             None => {
-                return Outcome::Failure((Status::Unauthorized, AuthenticationError::InvalidToken))
+                return Outcome::Error((Status::Unauthorized, AuthenticationError::InvalidToken))
             }
         };
 

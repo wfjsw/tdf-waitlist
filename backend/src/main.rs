@@ -41,7 +41,7 @@ async fn main() {
 
     let database = options
         .idle_timeout(std::time::Duration::from_secs(config.database.idle_timeout))
-        .connect_timeout(std::time::Duration::from_secs(
+        .acquire_timeout(std::time::Duration::from_secs(
             config.database.connect_timeout,
         ))
         .min_connections(config.database.min_connections)

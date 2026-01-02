@@ -7,7 +7,7 @@ use rocket::http::RawStr;
 use rocket::request::{FromRequest, Outcome};
 use rocket::serde::json::Json;
 use rocket::{request, Request};
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 
 use crate::app;
 use crate::core::auth::{AuthenticatedAccount, AuthenticationError, CookieSetter};
@@ -22,7 +22,7 @@ impl<'r> FromRequest<'r> for RealIP {
     async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
         match request.client_ip() {
             Some(ip) => Outcome::Success(RealIP(ip)),
-            None => Outcome::Forward(()),
+            None => Outcome::Forward(Status::BadRequest),
         }
     }
 }
