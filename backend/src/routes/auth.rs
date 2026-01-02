@@ -3,7 +3,7 @@ use std::net::IpAddr;
 
 use branca::Branca;
 
-use rocket::http::RawStr;
+use rocket::http::{RawStr, Status};
 use rocket::request::{FromRequest, Outcome};
 use rocket::serde::json::Json;
 use rocket::{request, Request};

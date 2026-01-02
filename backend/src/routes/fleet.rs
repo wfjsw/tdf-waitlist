@@ -322,7 +322,7 @@ async fn close_fleet(
                 _ => (),
             }
 
-            return Err(util::madness::Madness::ESIError(e));
+            return Err(Madness::ESIError(e));
         }
 
         if res.is_ok() {

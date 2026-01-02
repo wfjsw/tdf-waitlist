@@ -350,7 +350,10 @@ impl ESIRawClient {
             character_id,
             character_name: name,
             access_token: token.access_token,
-            access_token_expiry: chrono::Utc.timestamp(expires, 0) - chrono::Duration::seconds(60),
+            access_token_expiry: chrono::Utc.timestamp_opt(expires, 0)
+                .single()
+                .map(|t| t - chrono::Duration::seconds(60))
+                .unwrap_or_else(|| chrono::Utc::now()),
             refresh_token: None,
             scopes,
             alt_ids: None,
