@@ -145,9 +145,10 @@ async fn xup_multi(
     // Input sanity
     if xups.is_empty() {
         return Err(Madness::BadRequest("No fits supplied".to_string()));
-    } else if xups.len() > MAX_X_PER_ACCOUNT {
-        return Err(Madness::BadRequest("Too many fits".to_string()));
-    }
+    } 
+    // else if xups.len() > MAX_X_PER_ACCOUNT {
+    //     return Err(Madness::BadRequest("Too many fits".to_string()));
+    // }
 
     // Make sure the waitlist is actually open
     if sqlx::query!(
@@ -222,18 +223,18 @@ async fn xup_multi(
     };
 
     // Spam protection: limit x'es per account
-    if (sqlx::query!(
-        "SELECT COUNT(*) \"count!\" FROM waitlist_entry_fit WHERE entry_id = $1",
-        entry_id
-    )
-    .fetch_one(&mut tx)
-    .await?
-    .count as usize)
-        + xups.len()
-        > MAX_X_PER_ACCOUNT
-    {
-        return Err(Madness::BadRequest("Too many fits".to_string()));
-    }
+    // if (sqlx::query!(
+    //     "SELECT COUNT(*) \"count!\" FROM waitlist_entry_fit WHERE entry_id = $1",
+    //     entry_id
+    // )
+    // .fetch_one(&mut tx)
+    // .await?
+    // .count as usize)
+    //     + xups.len()
+    //     > MAX_X_PER_ACCOUNT
+    // {
+    //     return Err(Madness::BadRequest("Too many fits".to_string()));
+    // }
 
     // Actually write the individual entries now
     for (character_id, fit) in xups {

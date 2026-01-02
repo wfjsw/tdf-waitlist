@@ -545,6 +545,14 @@ impl ESIClient {
 
         }
 
+        sqlx::query!(
+            "DELETE FROM alt_character WHERE account_id = $1 AND alt_id NOT IN ($2::bigint[])",
+            auth.character_id,
+            &auth.alt_ids.as_ref().unwrap().iter().map(|c| c.id).collect::<Vec<_>>(),
+        )
+        .execute(&mut tx)
+        .await?;
+
         macro_rules! maprole {
             ($groups:ident, $group:expr, $role:expr) => (
                 if $groups.contains($group) {

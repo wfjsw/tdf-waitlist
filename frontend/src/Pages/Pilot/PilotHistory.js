@@ -1,13 +1,13 @@
 import { sortBy } from "lodash";
 import styled from "styled-components";
 
-import { FitEntry, SkillEntry, FleetEntry, NoteEntry } from "./Entry";
+import { FitEntry, FleetEntry, NoteEntry } from "./Entry";
 
 const Group = styled.div`
   margin-bottom: 2em;
 `;
 
-function CombinedDisplay({ filter, fleetHistory, xupHistory, skillHistory, notes }) {
+function CombinedDisplay({ filter, fleetHistory, xupHistory, /* skillHistory, */ notes }) {
   var everything = [];
 
   // Add xups
@@ -36,16 +36,16 @@ function CombinedDisplay({ filter, fleetHistory, xupHistory, skillHistory, notes
   }
 
   // Add skills
-  i = 0;
-  for (const entry of skillHistory || []) {
-    i++;
-    everything.push({
-      time: entry.logged_at,
-      type: "skill",
-      entry,
-      key: `skill-${i}`,
-    });
-  }
+  // i = 0;
+  // for (const entry of skillHistory || []) {
+  //   i++;
+  //   everything.push({
+  //     time: entry.logged_at,
+  //     type: "skill",
+  //     entry,
+  //     key: `skill-${i}`,
+  //   });
+  // }
 
   // Add notes, if they loaded
   i = 0;
@@ -84,8 +84,8 @@ function CombinedDisplay({ filter, fleetHistory, xupHistory, skillHistory, notes
       thisGroup.push(<FitEntry key={key} {...entry} />);
     } else if (type === "fleet") {
       thisGroup.push(<FleetEntry key={key} {...entry} />);
-    } else if (type === "skill") {
-      thisGroup.push(<SkillEntry key={key} {...entry} />);
+    // } else if (type === "skill") {
+    //   thisGroup.push(<SkillEntry key={key} {...entry} />);
     } else if (type === "note") {
       thisGroup.push(<NoteEntry key={key} {...entry} />);
     }
@@ -112,13 +112,13 @@ function CombinedDisplay({ filter, fleetHistory, xupHistory, skillHistory, notes
   return <div>{result}</div>;
 }
 
-export function PilotHistory({ filter, fleetHistory, xupHistory, skillHistory, notes }) {
+export function PilotHistory({ filter, fleetHistory, xupHistory, /* skillHistory, */ notes }) {
   return (
     <CombinedDisplay
       filter={filter}
       fleetHistory={fleetHistory}
       xupHistory={xupHistory}
-      skillHistory={skillHistory}
+      // skillHistory={skillHistory}
       notes={notes}
     />
   );

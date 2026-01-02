@@ -106,12 +106,12 @@ NavBar.Name = styled.div`
 `;
 
 export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme, sticker, setSticker }) {
-  const whoami = React.useContext(AuthContext);
+  const authContext = React.useContext(AuthContext);
   const { t } = useTranslation();
   const [isOpenMobileView, setOpenMobileView] = React.useState(false);
 
   let loginBtn;
-  if (whoami === false) {
+  if (authContext === false) {
     loginBtn = (
       <AButton
         title="Loading"
@@ -121,7 +121,7 @@ export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme, sti
         <FontAwesomeIcon icon={faSpinner} spinPulse />
       </AButton>
     );
-  } else if (whoami === null) {
+  } else if (authContext === null) {
     loginBtn = (
       <NavButton end to="/auth/start" variant="primary">
         {t('login')}
@@ -145,10 +145,10 @@ export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme, sti
       </NavBar.Header>
       <NavBar.Menu>
         <NavBar.Main>
-          <NavLinks whoami={whoami} />
+          <NavLinks whoami={authContext} />
         </NavBar.Main>
         <NavBar.End>
-          {whoami && (
+          {authContext && (
             <>
               <WaitlistContext.Consumer>
                 {(waitlists) => waitlists && (
@@ -175,13 +175,13 @@ export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme, sti
               <NavBar.Name>
                 <InputGroup fixed>
                   <Select
-                    value={whoami.current.id}
+                    value={authContext.current.id}
                     onChange={(evt) =>
                       onChangeCharacter && onChangeCharacter(parseInt(evt.target.value))
                     }
                     style={{ flexGrow: "1" }}
                   >
-                    {whoami.characters.map((character) => (
+                    {authContext.characters.map((character) => (
                       <option key={character.id} value={character.id}>
                         {character.name}
                       </option>
@@ -208,7 +208,7 @@ export function Menu({ onChangeCharacter, onChangeWaitlist, theme, setTheme, sti
             {loginBtn}
           </InputGroup>
         </NavBar.End>
-        <MobileNav isOpen={isOpenMobileView} whoami={whoami} />
+        <MobileNav isOpen={isOpenMobileView} whoami={authContext} />
       </NavBar.Menu>
     </NavBar>
   );

@@ -139,7 +139,7 @@ function ColumnWaitlist({ waitlist, onAction, fleetComposition, altCol }) {
       const categoryI = categoryIndex[altCol && fit.is_alt ? "小号 ALT" : fit.category];
       categories[categoryI][1].push(
         <div key={fit.id}>
-          <XCard entry={entry} fit={fit} onAction={onAction} />
+          <XCard entry={entry} fit={fit} fleetComposition={fleetComposition} onAction={onAction} />
         </div>
       );
     });
@@ -167,13 +167,13 @@ const CompactWaitlistDOM = styled.div`
   }
 `;
 
-function CompactWaitlist({ waitlist, onAction }) {
+function CompactWaitlist({ waitlist, fleetComposition, onAction }) {
   var allCards = [];
   forEach(waitlist.waitlist, (entry) => {
     forEach(entry.fits, (fit) => {
       allCards.push(
         <div key={fit.id}>
-          <XCard entry={entry} fit={fit} onAction={onAction} />
+          <XCard entry={entry} fit={fit} fleetComposition={fleetComposition} onAction={onAction} />
         </div>
       );
     });
@@ -192,14 +192,14 @@ LinearWaitlistDOM.Entry = styled.div`
   }
 `;
 
-function LinearWaitlist({ waitlist, onAction }) {
+function LinearWaitlist({ waitlist, fleetComposition, onAction }) {
   return (
     <LinearWaitlistDOM>
       {waitlist.waitlist.map((entry) => (
         <LinearWaitlistDOM.Entry key={entry.id}>
           {entry.fits.map((fit) => (
             <div key={fit.id}>
-              <XCard fit={fit} entry={entry} onAction={onAction} />
+              <XCard fit={fit} entry={entry} fleetComposition={fleetComposition} onAction={onAction} />
             </div>
           ))}
         </LinearWaitlistDOM.Entry>
@@ -248,7 +248,7 @@ function MatrixWaitlist({ waitlist, onAction, fleetComposition, altCol = true })
             const categoryI = categoryIndex[altCol && fit.is_alt ? "小号 ALT" : fit.category];
             byCategory[categoryI].push(
               <div key={fit.id}>
-                <XCard fit={fit} entry={entry} onAction={onAction} />
+                <XCard fit={fit} entry={entry} fleetComposition={fleetComposition} onAction={onAction} />
               </div>
             );
           });
@@ -291,7 +291,7 @@ function RowWaitlist({ waitlist, onAction, fleetComposition, altCol = true }) {
       const categoryI = categoryIndex[altCol && fit.is_alt ? "小号 ALT" : fit.category];
       categories[categoryI][1].push(
         <div key={fit.id}>
-          <XCard key={fit.id} entry={entry} fit={fit} onAction={onAction} />
+          <XCard key={fit.id} entry={entry} fit={fit} fleetComposition={fleetComposition} onAction={onAction} />
         </div>
       );
     });

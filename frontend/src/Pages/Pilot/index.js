@@ -10,7 +10,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Shield, tagBadges } from "../../Components/Badge";
 import {
   faClipboard,
-  faGraduationCap,
+  // faGraduationCap,
   faPen,
   faPlane,
   faTimes,
@@ -74,7 +74,7 @@ function PilotDisplay({ authContext }) {
   const [basicInfo, refreshBasicInfo] = useApi(`/api/pilot/info?character_id=${characterId}`);
   const [fleetHistory] = useApi(`/api/history/fleet?character_id=${characterId}`);
   const [xupHistory] = useApi(`/api/history/xup?character_id=${characterId}`);
-  const [skillHistory] = useApi(`/api/history/skills?character_id=${characterId}`);
+  // const [skillHistory] = useApi(`/api/history/skills?character_id=${characterId}`);
   const [notes] = useApi(
     authContext.access["notes-view"] ? `/api/notes?character_id=${characterId}` : null
   );
@@ -123,9 +123,9 @@ function PilotDisplay({ authContext }) {
               <a onClick={(evt) => setFilter(null)} style={{ marginRight: "0.5em" }}>
                 <FontAwesomeIcon fixedWidth icon={faTimes} />
               </a>
-              <a onClick={(evt) => setFilter("skill")}>
+              {/* <a onClick={(evt) => setFilter("skill")}>
                 <FontAwesomeIcon fixedWidth icon={faGraduationCap} />
-              </a>
+              </a> */}
               <a onClick={(evt) => setFilter("fit")}>
                 <FontAwesomeIcon fixedWidth icon={faPen} />
               </a>
@@ -144,7 +144,7 @@ function PilotDisplay({ authContext }) {
             filter={filter ? (type) => type === filter : null}
             fleetHistory={fleetHistory && fleetHistory.activity}
             xupHistory={xupHistory && xupHistory.xups}
-            skillHistory={skillHistory && skillHistory.history}
+            // skillHistory={skillHistory && skillHistory.history}
             notes={notes && notes.notes}
           />
         </Col>

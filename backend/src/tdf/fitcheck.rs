@@ -66,7 +66,7 @@ impl<'a> FitChecker<'a> {
         };
 
         checker.check_skill_reqs()?;
-        checker.check_module_skills()?;
+        // checker.check_module_skills()?;
         checker.check_fit();
         // checker.check_fit_reqs();
         // checker.check_fit_implants_reqs();
@@ -129,8 +129,9 @@ impl<'a> FitChecker<'a> {
             let typedata = typedata.expect("Fit was checked so this can't happen?");
             for (&skill_id, &level) in &typedata.skill_requirements {
                 if self.pilot.skills.get(skill_id) < level {
-                    self.errors
-                        .push(format!("Missing skills to online/use '{}'", typedata.name));
+                    // self.errors
+                    //     .push(format!("Missing skills to online/use '{}'", typedata.name));
+                    self.tags.insert("MODULE-SKILL-MISSING");
                 }
             }
         }

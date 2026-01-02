@@ -80,12 +80,12 @@ export function Xup() {
   const [eft, setEft] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [reviewOpen, setReviewOpen] = React.useState(false);
-  const [alt, setAlt] = React.useState(false);
+  // const [alt, setAlt] = React.useState(false);
   const [implants] = useApi(`/api/implants?character_id=${authContext.current.id}`);
 
-  const handleChange = () => {
-    setAlt(!alt);
-  };
+  // const handleChange = () => {
+  //   setAlt(!alt);
+  // };
 
   const waitlist_id = waitlistContext && waitlistContext.active;
   if (!waitlist_id) {
@@ -119,12 +119,12 @@ export function Xup() {
             style={{ width: "100%", marginBottom: "1em" }}
           />
           {/* <InfoAnnouncement id={3} /> */}
-          <div>
+          {/* <div>
             <label>
               <input type="checkbox" checked={alt} onChange={handleChange} />
               {t('alt_checkbox')}
             </label>
-          </div>
+          </div> */}
 
           <InputGroup>
             <Button static>{authContext.current.name}</Button>
@@ -139,7 +139,7 @@ export function Xup() {
                     eft,
                     toastContext,
                     waitlist_id,
-                    alt,
+                    alt: false, // alt,
                   }).then((evt) => setReviewOpen(true))
                 ).finally((evt) => setIsSubmitting(false));
               }}

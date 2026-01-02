@@ -13,8 +13,8 @@ import {
   NotepadWaitlist,
   CategoryHeading,
 } from "./displaymodes";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faColumns } from "@fortawesome/free-solid-svg-icons";
+// import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+// import { faColumns } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "../../Util/query";
 import { useTranslation } from "react-i18next";
 
@@ -141,11 +141,12 @@ export function Waitlist() {
   const waitlistContext = React.useContext(WaitlistContext);
   const [query, setQuery] = useQuery();
   const waitlistId = waitlistContext !== null ? waitlistContext.active : null;
-  const [altCol, setAltCol] = React.useState(
-    window.localStorage && window.localStorage.getItem("AltColumn")
-      ? window.localStorage.getItem("AltColumn") === "true"
-      : false
-  );
+  // const [altCol, setAltCol] = React.useState(
+  //   window.localStorage && window.localStorage.getItem("AltColumn")
+  //     ? window.localStorage.getItem("AltColumn") === "true"
+  //     : false
+  // );
+  const altCol = false;
   const [waitlistData, refreshWaitlist] = useWaitlist(waitlistId);
   const fleetComposition = useFleetComposition();
   const { t } = useTranslation("waitlist");
@@ -179,12 +180,12 @@ export function Waitlist() {
       </>
     );
   }
-  const handleChange = () => {
-    setAltCol(!altCol);
-    if (window.localStorage) {
-      window.localStorage.setItem("AltColumn", !altCol);
-    }
-  };
+  // const handleChange = () => {
+  //   setAltCol(!altCol);
+  //   if (window.localStorage) {
+  //     window.localStorage.setItem("AltColumn", !altCol);
+  //   }
+  // };
 
   const myEntry = waitlistData.waitlist.find(
     (ent) =>
@@ -231,13 +232,13 @@ export function Waitlist() {
               </Button>
           )}
         </InputGroup>
-        {(displayMode === "columns" || displayMode === "rows" || displayMode === "matrix") && (
+        {/* {(displayMode === "columns" || displayMode === "rows" || displayMode === "matrix") && (
           <InputGroup>
             <Button onClick={handleChange}>
               <FontAwesomeIcon icon={faColumns} />
             </Button>
           </InputGroup>
-        )}
+        )} */}
         {!altCol && (
           <CategoryHeading name="小号 ALT" fleetComposition={fleetComposition} altCol={altCol} />
         )}
@@ -251,9 +252,10 @@ export function Waitlist() {
           altCol={altCol}
         />
       ) : displayMode === "compact" ? (
-        <CompactWaitlist waitlist={waitlistData} onAction={refreshWaitlist} />
+        <CompactWaitlist waitlist={waitlistData} 
+          fleetComposition={fleetComposition} onAction={refreshWaitlist} />
       ) : displayMode === "linear" ? (
-        <LinearWaitlist waitlist={waitlistData} onAction={refreshWaitlist} />
+        <LinearWaitlist waitlist={waitlistData} fleetComposition={fleetComposition} onAction={refreshWaitlist} />
       ) : displayMode === "matrix" ? (
         <MatrixWaitlist
           waitlist={waitlistData}

@@ -26,6 +26,7 @@ import { Box } from "../../Components/Box";
 import { Title } from "../../Components/Page";
 import { Button, InputGroup } from "../../Components/Form";
 import { useTranslation } from "react-i18next";
+import { AltNumberDisplay } from "./AltNumberDisplay.js";
 
 const badgeOrder = [
   "HQ-FC",
@@ -326,7 +327,7 @@ function PilotInformation({ characterId, authContext, id }) {
   );
 }
 
-export function XCard({ entry, fit, onAction }) {
+export function XCard({ entry, fit, fleetComposition, onAction }) {
   const authContext = React.useContext(AuthContext);
   const toastContext = React.useContext(ToastContext);
   const { t } = useTranslation("waitlist");
@@ -336,9 +337,11 @@ export function XCard({ entry, fit, onAction }) {
   const tags = sortBy(fit.tags, function (item) {
     return badgeOrder.indexOf(item);
   });
-  var isSelf = entry.character && entry.character.id === authContext.account_id;
-  var tagText = [];
-  var tagImages = [];
+  // var isSelf = entry.character && entry.character.id === authContext.account_id;
+  // let isSelf = entry.character && authContext.characters.some((character) => character.id === entry.character.id);
+  const isSelf = entry.character && entry.character.account_id === authContext.account_id;
+  let tagText = [];
+  let tagImages = [];
   tags.forEach((tag) => {
     if (tag === "ELITE-GOLD") {
       tagImages.push(<img key={tag} src={egoldBadge} alt={"Elite GOLD"} title={"Elite GOLD"} />);
@@ -362,6 +365,14 @@ export function XCard({ entry, fit, onAction }) {
     </span>
   );
 
+  const altNumber = fleetComposition && fleetComposition.members ? fleetComposition.members.filter(
+    (member) => {
+      const memberId = member?.account_id ?? member?.id;
+      const fitId = fit.character?.account_id ?? fit.character?.id;
+      return memberId === fitId;
+    }
+  ).length : null;
+
   return (
     <XCardDOM
       variant={
@@ -383,6 +394,7 @@ export function XCard({ entry, fit, onAction }) {
         <XCardDOM.Head.Badges>
           {tagImages}
           {approvalFlag}
+          {altNumber !== null && <AltNumberDisplay altNumber={altNumber} />}
           <TimeDisplay relativeTo={entry.joined_at} isAlt={is_alt} />
         </XCardDOM.Head.Badges>
       </XCardDOM.Head>
