@@ -7,7 +7,7 @@ import { Search } from "./Search";
 // import { Statistics } from "./Statistics";
 import { FleetCompHistory } from "./FleetCompHistory";
 import { NoteAdd } from "./NoteAdd";
-import { Announcements } from "./Announcements";
+// import { Announcements } from "./Announcements";
 import { FCMenu, GuideFC } from "./FCMenu";
 import { View as BadgesView } from "./Badges";
 import { View as CommandersView } from "./Commanders";
@@ -44,9 +44,9 @@ export function FCRoutes() {
       {authContext.access["fleet-view"] && (
         <Route path="trainee" element={<GuideFC />} />
       )}
-      {authContext.access["waitlist-tag:HQ-FC"] && (
+      {/* {authContext.access["waitlist-tag:HQ-FC"] && (
         <Route path="/fc/announcement" element={<Announcements />} />
-      )}
+      )} */}
     </Routes>
   );
 }
