@@ -5,9 +5,7 @@ use serde::Deserialize;
 
 use crate::{
     app::Application,
-    core::{
-        auth::{authorize_character, AuthenticatedAccount},
-    },
+    core::auth::{authorize_character, AuthenticatedAccount},
     data::{implants, skills},
     tdf,
     util::madness::Madness,
@@ -43,17 +41,22 @@ async fn dedup_implants(db: &mut crate::DBTX<'_>, implants: &[TypeID]) -> Result
         .collect::<Vec<_>>()
         .join(":");
 
-    if let Some(implant_set) =
-        sqlx::query!("SELECT id FROM implant_set WHERE implants = $1", implant_str)
-            .fetch_optional(&mut **db)
-            .await?
+    if let Some(implant_set) = sqlx::query!(
+        "SELECT id FROM implant_set WHERE implants = $1",
+        implant_str
+    )
+    .fetch_optional(&mut **db)
+    .await?
     {
         return Ok(implant_set.id);
     }
 
-    let result = sqlx::query!("INSERT INTO implant_set (implants) VALUES ($1) RETURNING id", implant_str)
-        .fetch_one(&mut **db)
-        .await?;
+    let result = sqlx::query!(
+        "INSERT INTO implant_set (implants) VALUES ($1) RETURNING id",
+        implant_str
+    )
+    .fetch_one(&mut **db)
+    .await?;
     Ok(result.id)
 }
 
@@ -65,9 +68,13 @@ async fn dedup_dna(db: &mut crate::DBTX<'_>, hull: TypeID, dna: &str) -> Result<
         return Ok(fitting.id);
     };
 
-    let result = sqlx::query!("INSERT INTO fitting (dna, hull) VALUES ($1, $2) RETURNING id", dna, hull)
-        .fetch_one(&mut **db)
-        .await?;
+    let result = sqlx::query!(
+        "INSERT INTO fitting (dna, hull) VALUES ($1, $2) RETURNING id",
+        dna,
+        hull
+    )
+    .fetch_one(&mut **db)
+    .await?;
     Ok(result.id)
 }
 
@@ -145,7 +152,7 @@ async fn xup_multi(
     // Input sanity
     if xups.is_empty() {
         return Err(Madness::BadRequest("No fits supplied".to_string()));
-    } 
+    }
     // else if xups.len() > MAX_X_PER_ACCOUNT {
     //     return Err(Madness::BadRequest("Too many fits".to_string()));
     // }
@@ -246,8 +253,8 @@ async fn xup_multi(
 
         // Delete existing X'up for the hull
         if let Some(existing_x) = sqlx::query!("
-        SELECT waitlist_entry_fit.id FROM waitlist_entry_fit JOIN fitting ON fit_id=fitting.id WHERE character_id = $1 AND hull = $2
-        ",character_id, fit.hull).fetch_optional(&mut *tx).await? {
+        SELECT waitlist_entry_fit.id FROM waitlist_entry_fit JOIN fitting ON fit_id=fitting.id WHERE character_id = $1 AND hull = $2 AND entry_id = $3
+        ",character_id, fit.hull, entry_id).fetch_optional(&mut *tx).await? {
             sqlx::query!("DELETE FROM waitlist_entry_fit WHERE id = $1", existing_x.id).execute(&mut *tx).await?;
         }
 
