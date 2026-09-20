@@ -66,6 +66,7 @@
     },
     "globals": {
       "RELEASE": true,
+      "APP_VERSION": true,
       "SENTRY_DSN": true
     }
   },

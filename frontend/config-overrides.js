@@ -9,6 +9,7 @@ const CompressionPlugin = require("compression-webpack-plugin");
 const zlib = require("zlib");
 
 const release = Math.floor(Date.now() / 1000).toString()
+const { version } = require("./package.json")
 
 const addSentryPlugin = config => {
     config.plugins.push(
@@ -21,6 +22,7 @@ const addSentryPlugin = config => {
         // }),
         new DefinePlugin({
           RELEASE: JSON.stringify(release),
+          APP_VERSION: JSON.stringify(version),
           SENTRY_DSN: JSON.stringify(process.env.SENTRY_DSN)
         }),
         new CompressionPlugin({

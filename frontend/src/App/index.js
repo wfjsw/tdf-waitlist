@@ -13,6 +13,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPowerOff } from "@fortawesome/free-solid-svg-icons";
 
 import { Menu } from "./Menu";
+import { BuildInfo } from "../Components/BuildInfo";
 import "./reset.css";
 import theme from "./theme.js";
 import { processWaitlists } from "../waitlists";
@@ -202,6 +203,7 @@ export default class App extends React.Component {
                       toasts={this.state.toasts}
                       setToasts={(toasts) => this.setState({ toasts })}
                     />
+                    <BuildInfo />
                   </Container>
                 </Router>
               </WaitlistContext.Provider>
