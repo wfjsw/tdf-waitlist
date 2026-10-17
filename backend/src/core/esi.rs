@@ -55,8 +55,8 @@ struct OAuthTokenResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccountInfo {
-    id: i64,
-    name: String,
+    pub id: i64,
+    pub name: String,
     valid: bool
 }
 
@@ -91,6 +91,34 @@ pub enum ESIError {
     
 }
 
+/// An HTTP date, as ESI sends in Last-Modified ("Sat, 17 Oct 2026 12:00:00 GMT"), as unix seconds
+pub fn parse_last_modified(value: &str) -> Option<i64> {
+    chrono::DateTime::parse_from_rfc2822(value)
+        .ok()
+        .map(|t| t.timestamp())
+}
+
+/// One page of an ESI list
+pub struct Page<D> {
+    pub body: D,
+    /// From X-Pages; 1 when absent
+    pub pages: i32,
+    /// When ESI produced the data (Last-Modified), if it said
+    pub last_modified: Option<i64>,
+}
+
+/// Every SeAT login asks for these: the login's JWT claims rely on them
+pub const SEAT_LOGIN_SCOPES: [ESIScope; 4] = [
+    ESIScope::CAS_OpenID,
+    ESIScope::CAS_Accounts,
+    ESIScope::CAS_Groups,
+    ESIScope::CAS_Passthrough,
+];
+
+/// Pins the response shapes of ESI's unversioned routes. Changing it can change what they return,
+/// so check the structs that parse them first.
+const ESI_COMPATIBILITY_DATE: &str = "2020-01-01";
+
 #[derive(Debug, Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub enum ESIScope {
@@ -100,6 +128,8 @@ pub enum ESIScope {
     UI_OpenWindow_v1,
     Skills_ReadSkills_v1,
     Clones_ReadImplants_v1,
+    Wallet_ReadCorporationWallets_v1,
+    Contracts_ReadCorporationContracts_v1,
 
     CAS_OpenID,
     CAS_Accounts,
@@ -118,6 +148,8 @@ impl ESIScope {
             UI_OpenWindow_v1 => "esi-ui.open_window.v1",
             Skills_ReadSkills_v1 => "esi-skills.read_skills.v1",
             Clones_ReadImplants_v1 => "esi-clones.read_implants.v1",
+            Wallet_ReadCorporationWallets_v1 => "esi-wallet.read_corporation_wallets.v1",
+            Contracts_ReadCorporationContracts_v1 => "esi-contracts.read_corporation_contracts.v1",
 
             CAS_OpenID => "openid",
             CAS_Accounts => "accounts",
@@ -839,6 +871,88 @@ impl ESIClient {
         Ok(())
     }
 
+    /// Exchanges an authorization code without saving anything, for flows that keep the token
+    /// themselves instead of logging the user in
+    pub async fn exchange_code(
+        &self,
+        code: &str,
+        required_scopes: &[ESIScope],
+    ) -> Result<AuthResult, ESIError> {
+        let required_scopes: BTreeSet<String> =
+            required_scopes.iter().map(|s| s.as_str().to_owned()).collect();
+        self.raw
+            .process_auth("authorization_code", code, Some(&required_scopes))
+            .await
+    }
+
+    /// Refreshes a SeAT login held outside the refresh_token table. Returns SeAT's access token
+    /// and the replacement refresh token, if SeAT issued one. Store that before anything else can
+    /// fail: if SeAT rotates refresh tokens, the old one no longer works.
+    pub async fn refresh_seat_login(
+        &self,
+        refresh_token: &str,
+    ) -> Result<(String, Option<String>), ESIError> {
+        let seat = self
+            .raw
+            .process_auth("refresh_token", refresh_token, None)
+            .await?;
+        Ok((seat.access_token, seat.refresh_token))
+    }
+
+    /// An ESI token for `character_id` with exactly `scopes`, from a SeAT access token
+    pub async fn passthrough_token(
+        &self,
+        seat_access_token: &str,
+        character_id: i64,
+        scopes: &[ESIScope],
+    ) -> Result<String, ESIError> {
+        let scopes: BTreeSet<String> = scopes.iter().map(|s| s.as_str().to_owned()).collect();
+        let esi = self
+            .raw
+            .process_auth_passthrough(character_id, seat_access_token, Some(&scopes))
+            .await?;
+        if !esi.scopes.is_superset(&scopes) {
+            return Err(ESIError::MissingScope);
+        }
+        Ok(esi.access_token)
+    }
+
+    /// GET on ESI's current unversioned routes, which require a compatibility date. Newer code uses
+    /// these because ESI now versions by date; the `/vN/` routes used elsewhere are its legacy
+    /// scheme.
+    pub async fn get_page<D: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        access_token: &str,
+        page: i32,
+    ) -> Result<Page<D>, ESIError> {
+        let response = self
+            .raw
+            .http
+            .get(&format!("https://esi.evetech.net{}?page={}", path, page))
+            .bearer_auth(access_token)
+            .header("X-Compatibility-Date", ESI_COMPATIBILITY_DATE)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        let header = |name: &str| {
+            response
+                .headers()
+                .get(name)
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_owned)
+        };
+        let pages = header("X-Pages").and_then(|v| v.parse().ok()).unwrap_or(1);
+        let last_modified = header("Last-Modified").and_then(|v| parse_last_modified(&v));
+
+        Ok(Page {
+            body: response.json().await?,
+            pages,
+            last_modified,
+        })
+    }
+
     pub async fn check(&self, account_id: i64) -> bool {
         let result = self.access_token_idp(account_id).await;
         match result {
@@ -892,4 +1006,20 @@ fn split_scopes(input: &str) -> BTreeSet<String> {
 
 fn join_scopes(input: &BTreeSet<String>) -> String {
     input.iter().fold(String::new(), |a, b| a + b + " ")
+}
+
+#[cfg(test)]
+mod last_modified_tests {
+    use super::parse_last_modified;
+
+    #[test]
+    fn parses_esi_last_modified() {
+        // 2026-10-17T12:00:00Z
+        assert_eq!(
+            parse_last_modified("Sat, 17 Oct 2026 12:00:00 GMT"),
+            Some(1792238400)
+        );
+        assert_eq!(parse_last_modified("yesterday"), None);
+        assert_eq!(parse_last_modified(""), None);
+    }
 }
