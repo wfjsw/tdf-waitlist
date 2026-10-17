@@ -422,7 +422,7 @@ const MultiboxerCards = React.memo(function MultiboxerCards({ grouping, now }) {
       {rows.length > 0 ? (
         <CardGrid role="list" aria-label="Multiboxers">
           {rows.map((row) => (
-            <PlayerCard role="listitem" key={row.key}>
+            <PlayerCard role="listitem" aria-label={row.player} key={row.key}>
               <CardHead>
                 <PlayerName>{row.player}</PlayerName>
                 <Pill heavy={row.count >= HEAVY_MULTIBOX_THRESHOLD}>
@@ -496,7 +496,7 @@ const EveryoneElse = React.memo(function EveryoneElse({ grouping, now }) {
   );
 });
 
-function FleetMembers({refreshedAt}) {
+export function FleetMembers({refreshedAt}) {
   const authContext = React.useContext(AuthContext);
   const [fleetMembers, setFleetMembers] = React.useState(null);
   const characterId = authContext.current.id;
