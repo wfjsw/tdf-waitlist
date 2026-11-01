@@ -198,8 +198,7 @@ test("disconnect sends the wallet character id", async () => {
     return Promise.resolve("OK");
   });
   renderPage();
-  await waitFor(() => expect(screen.getAllByText("Alpha").length).toBeGreaterThan(1));
-  fireEvent.click(screen.getByText("Disconnect"));
+  fireEvent.click(await screen.findByText("Disconnect"));
   fireEvent.click(screen.getByText("Yes"));
   await waitFor(() =>
     expect(mockApiCall).toHaveBeenCalledWith("/api/srp/admin/disconnect", {

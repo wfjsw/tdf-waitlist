@@ -2,7 +2,7 @@ import React from "react";
 import styled from "styled-components";
 import { AuthContext, ToastContext } from "../../contexts";
 import { apiCall, errorToaster, toaster } from "../../api";
-import { Button, Buttons, Select } from "../../Components/Form";
+import { Button, Buttons, Input, Select } from "../../Components/Form";
 import { Confirm } from "../../Components/Modal";
 import { InfoNote } from "../../Components/NoteBox";
 import { Content, PageTitle } from "../../Components/Page";
@@ -108,14 +108,20 @@ const Toggle = styled.summary`
   padding: 0.3em 0;
 `;
 
-const WaitlistRow = styled.div`
+const WaitlistCard = styled.div`
+  margin: 0.8em 0;
+  padding: 0.7em 0.9em;
+  border: 1px solid ${(props) => props.theme.colors.accent2};
+  border-radius: 4px;
+  word-break: break-word;
+`;
+
+const WaitlistHead = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0.3em 1em;
-  padding: 0.5em 0;
-  border-bottom: 1px solid ${(props) => props.theme.colors.accent2};
-  word-break: break-word;
 
   > .name {
     flex: 1 1 12em;
@@ -128,24 +134,50 @@ const WaitlistRow = styled.div`
   > .pick select {
     width: 100%;
   }
-  > .note {
-    flex: 1 1 100%;
+`;
+
+// The two settings side by side on wide screens, stacked when there's no room
+const WaitlistColumns = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.5em 1.5em;
+  margin-top: 0.6em;
+`;
+
+const Group = styled.section`
+  min-width: 0;
+`;
+
+const GroupTitle = styled.h4`
+  margin: 0 0 0.3em;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: ${(props) => props.theme.colors.accent4};
+`;
+
+const RuleRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5em 0.7em;
+
+  input,
+  select {
+    width: 6.5em;
   }
-  > .rule {
-    flex: 1 1 100%;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.4em 1em;
-    padding: 0.2em 0 0.5em;
+`;
+
+const Field = styled.label`
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+
+  > .label {
+    font-size: 0.85em;
+    color: ${(props) => props.theme.colors.accent4};
   }
-  > .rule label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3em;
-  }
-  > .rule input {
-    width: 5.5em;
+  &.division select {
+    width: 4.5em;
   }
 `;
 
@@ -169,8 +201,10 @@ const WARN = "⚠︎";
 const datetime = (unixSeconds) => formatDatetime(new Date(unixSeconds * 1000));
 
 async function startConnect(characterId, waitlistId) {
-  const waitlist = waitlistId ? `&waitlist_id=${waitlistId}` : "";
-  const url = await apiCall(`/api/srp/admin/connect?character_id=${characterId}${waitlist}`, {});
+  const url = await apiCall(
+    `/api/srp/admin/connect?character_id=${characterId}&waitlist_id=${waitlistId}`,
+    {}
+  );
   window.location.href = url;
 }
 
@@ -417,52 +451,6 @@ function Wallet({ admin, wallet, now, onChange }) {
   );
 }
 
-function ConnectWallet() {
-  const authContext = React.useContext(AuthContext);
-  const [picked, setPicked] = React.useState(null);
-  const [startError, setStartError] = React.useState(null);
-  const [connecting, setConnecting] = React.useState(false);
-
-  const characters = authContext.characters;
-  const selected = picked === null ? authContext.current.id : picked;
-
-  const connect = () => {
-    setStartError(null);
-    setConnecting(true);
-    startConnect(selected).catch((err) => {
-      setStartError(err.toString());
-      setConnecting(false);
-    });
-  };
-
-  return (
-    <>
-      <p style={{ margin: "0.5em 0" }}>
-        Pick your character in the SRP corp that has the Junior Accountant role. It never needs to
-        fly or log in again.
-      </p>
-      <Buttons>
-        <Select
-          aria-label="Wallet character"
-          value={selected}
-          disabled={connecting}
-          onChange={(evt) => setPicked(parseInt(evt.target.value, 10))}
-        >
-          {characters.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-        <Button variant="primary" disabled={connecting} onClick={connect}>
-          {connecting ? "Connecting…" : "Connect"}
-        </Button>
-      </Buttons>
-      {startError && <InfoNote variant="danger">{startError}</InfoNote>}
-    </>
-  );
-}
-
 function Wallets({ admin, now, onChange }) {
   return (
     <Step aria-labelledby="srp-step-wallets">
@@ -470,11 +458,14 @@ function Wallets({ admin, now, onChange }) {
         <StepNumber aria-hidden="true">1</StepNumber>SRP wallets
       </StepHeading>
       <Hint>
-        Connect a character in an SRP corp. Each waitlist then picks which account pays for its
-        pilots, so two waitlists can each have their own account.
+        Accounts connected for a waitlist below. Each waitlist has its own, so two waitlists can
+        share a corp with separate accounts. Use Disconnect here; connect from the waitlist the
+        account should pay for.
       </Hint>
       {admin.wallets.length === 0 ? (
-        <Muted style={{ margin: "0.8em 0" }}>No SRP wallet connected yet.</Muted>
+        <Muted style={{ margin: "0.8em 0" }}>
+          No SRP wallet connected yet; connect one from the waitlist it should pay for.
+        </Muted>
       ) : (
         admin.wallets.map((wallet) => (
           <Wallet
@@ -486,7 +477,6 @@ function Wallets({ admin, now, onChange }) {
           />
         ))
       )}
-      <ConnectWallet />
     </Step>
   );
 }
@@ -522,7 +512,7 @@ function ConnectForWaitlist({ waitlist }) {
   };
 
   return (
-    <details className="note">
+    <details>
       <Toggle>Connect an account for {waitlist.name}</Toggle>
       <Buttons style={{ marginTop: "0.4em" }}>
         <Select
@@ -616,23 +606,25 @@ function RuleForm({ waitlist, onChange }) {
   };
 
   return (
-    <div className="rule">
-      <label>
-        Division{" "}
-        <input
-          type="number"
-          min="1"
-          max="7"
-          step="1"
+    <RuleRow>
+      <Field className="division">
+        <span className="label">Division</span>
+        <Select
           value={division}
           disabled={saving}
           aria-label={`Wallet division for ${waitlist.name}`}
           onChange={(evt) => setDivision(evt.target.value)}
-        />
-      </label>
-      <label>
-        Min (M ISK){" "}
-        <input
+        >
+          {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field>
+        <span className="label">Min (M ISK)</span>
+        <Input
           type="number"
           min="0"
           step="0.1"
@@ -641,10 +633,10 @@ function RuleForm({ waitlist, onChange }) {
           aria-label={`Minimum amount in millions of ISK for ${waitlist.name}`}
           onChange={(evt) => setMillions(evt.target.value)}
         />
-      </label>
-      <label>
-        Cover (h){" "}
-        <input
+      </Field>
+      <Field>
+        <span className="label">Cover (hours)</span>
+        <Input
           type="number"
           min="1"
           max="720"
@@ -654,7 +646,7 @@ function RuleForm({ waitlist, onChange }) {
           aria-label={`Coverage in hours for ${waitlist.name}`}
           onChange={(evt) => setHours(evt.target.value)}
         />
-      </label>
+      </Field>
       <Button
         variant="primary"
         disabled={saving || !valid || unchanged}
@@ -663,7 +655,7 @@ function RuleForm({ waitlist, onChange }) {
       >
         {saving ? "Saving…" : "Save rule"}
       </Button>
-    </div>
+    </RuleRow>
   );
 }
 
@@ -714,8 +706,8 @@ function WaitlistPicker({ admin, onChange }) {
       </StepHeading>
       <Hint>
         {wallets.length === 0
-          ? "Connect an account above or from the waitlist's own form, then pick which account pays for it."
-          : "Pick which wallet account pays SRP for each waitlist. To add an account, use the form above or the waitlist's own. Pilots are covered by payments to that account's corp only. Each waitlist also has its own rule: division, minimum amount and cover. Wallet changes save straight away; pilots see them next time they open the waitlist."}
+          ? "Connect an account in a waitlist's row below to make it that waitlist's wallet."
+          : "Connect an account in a waitlist's row to make it that waitlist's wallet, or pick an already connected one. Pilots are covered by payments to that account's corp only. Each waitlist also has its own rule: division, minimum amount and cover. Wallet changes save straight away; pilots see them next time they open the waitlist."}
       </Hint>
       {waitlists.length === 0 ? (
         <p style={{ margin: "0.8em 0" }}>
@@ -754,49 +746,57 @@ function WaitlistPicker({ admin, onChange }) {
             const showBy =
               (waitlist.character || waitlist.corporation_id) && waitlist.set_by && waitlist.set_at;
             return (
-              <WaitlistRow key={waitlist.id}>
-                <label className="name" htmlFor={`srp-wl-${waitlist.id}`}>
-                  {waitlist.name}
-                </label>
-                <div className="pick">
-                  <Select
-                    id={`srp-wl-${waitlist.id}`}
-                    value={value}
-                    disabled={pending.includes(waitlist.id)}
-                    aria-describedby={showBy ? byId : undefined}
-                    onChange={(evt) => pick(waitlist, evt.target.value)}
-                  >
-                    <option value="">No SRP</option>
-                    {wallets.map((w) => (
-                      <option key={w.character.id} value={String(w.character.id)}>
-                        {w.character.name || w.character.id} ({w.corporation_name})
-                      </option>
-                    ))}
-                    {orphaned && (
-                      <option value={orphanValue}>{orphanName} (wallet disconnected)</option>
-                    )}
-                    {pendingCorp !== null && (characterId !== null || !orphaned) && (
-                      <option value={`corp:${pendingCorp}`}>
-                        Any wallet of corp {pendingCorp}
-                      </option>
-                    )}
-                  </Select>
-                </div>
+              <WaitlistCard key={waitlist.id}>
+                <WaitlistHead>
+                  <label className="name" htmlFor={`srp-wl-${waitlist.id}`}>
+                    {waitlist.name}
+                  </label>
+                  <div className="pick">
+                    <Select
+                      id={`srp-wl-${waitlist.id}`}
+                      value={value}
+                      disabled={pending.includes(waitlist.id)}
+                      aria-describedby={showBy ? byId : undefined}
+                      onChange={(evt) => pick(waitlist, evt.target.value)}
+                    >
+                      <option value="">No SRP</option>
+                      {wallets.map((w) => (
+                        <option key={w.character.id} value={String(w.character.id)}>
+                          {w.character.name || w.character.id} ({w.corporation_name})
+                        </option>
+                      ))}
+                      {orphaned && (
+                        <option value={orphanValue}>{orphanName} (wallet disconnected)</option>
+                      )}
+                      {pendingCorp !== null && (characterId !== null || !orphaned) && (
+                        <option value={`corp:${pendingCorp}`}>
+                          Any wallet of corp {pendingCorp}
+                        </option>
+                      )}
+                    </Select>
+                  </div>
+                </WaitlistHead>
                 {showBy && (
-                  <Hint as="div" id={byId} className="note">
+                  <Hint as="div" id={byId} style={{ marginTop: "0.3em" }}>
                     by {waitlist.set_by.name} · {datetime(waitlist.set_at)}
                   </Hint>
                 )}
                 {orphaned && (
-                  <div className="note">
-                    <Status variant="warning" style={{ marginBottom: 0 }}>
-                      {WARN} Its wallet isn't connected, so pilots see nothing.
-                    </Status>
-                  </div>
+                  <Status variant="warning" style={{ marginTop: "0.5em", marginBottom: 0 }}>
+                    {WARN} Its wallet isn't connected, so pilots see nothing.
+                  </Status>
                 )}
-                <ConnectForWaitlist waitlist={waitlist} />
-                <RuleForm waitlist={waitlist} onChange={onChange} />
-              </WaitlistRow>
+                <WaitlistColumns>
+                  <Group aria-labelledby={`srp-wl-${waitlist.id}-account`}>
+                    <GroupTitle id={`srp-wl-${waitlist.id}-account`}>Wallet account</GroupTitle>
+                    <ConnectForWaitlist waitlist={waitlist} />
+                  </Group>
+                  <Group aria-labelledby={`srp-wl-${waitlist.id}-rule`}>
+                    <GroupTitle id={`srp-wl-${waitlist.id}-rule`}>Payments counted</GroupTitle>
+                    <RuleForm waitlist={waitlist} onChange={onChange} />
+                  </Group>
+                </WaitlistColumns>
+              </WaitlistCard>
             );
           })}
         </Fieldset>
@@ -811,8 +811,8 @@ function Footnote({ admin }) {
     <Muted style={{ marginTop: "1.5em", fontSize: "0.9em" }}>
       New waitlists start at {formatIsk(admin.defaults.min_amount)}+ from wallet division{" "}
       {admin.defaults.division}, covering the paying character for{" "}
-      {formatSpan(admin.defaults.coverage_hours * 3600)}; each waitlist's rule can be changed in its
-      row. Times are EVE time (UTC).
+      {formatSpan(admin.defaults.coverage_hours * 3600)}; each waitlist's rule can be changed on its
+      card. Times are EVE time (UTC).
     </Muted>
   );
 }
