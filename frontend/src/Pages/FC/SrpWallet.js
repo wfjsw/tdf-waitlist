@@ -193,7 +193,7 @@ function useSrpAdmin() {
           if (mounted.current && id === latest.current) setAdmin(data);
         },
         (err) => {
-          if (mounted.current) throw err;
+          if (mounted.current && id === latest.current) throw err;
         }
       );
       const done = quiet ? request.catch(() => {}) : errorToaster(toastContext, request);
@@ -302,7 +302,7 @@ function RecentPayments({ admin, wallet }) {
       <Toggle>Recent payments ({recent.length})</Toggle>
       {recent.length === 0 ? (
         <p style={{ margin: "0.5em 0" }}>
-          <em>No payments in the last {admin.coverage_hours} hours.</em>
+          <em>No payments in the last {formatSpan(admin.coverage_hours * 3600)}.</em>
         </p>
       ) : (
         <TableScroll>
@@ -565,8 +565,8 @@ function Footnote({ admin }) {
   return (
     <Muted style={{ marginTop: "1.5em", fontSize: "0.9em" }}>
       Counting payments of {formatIsk(admin.min_amount)}+ to the SRP corp, covering the paying
-      character for {admin.coverage_hours} hours (wallet division {admin.division}). Times are EVE
-      time (UTC).
+      character for {formatSpan(admin.coverage_hours * 3600)} (wallet division {admin.division}).
+      Times are EVE time (UTC).
     </Muted>
   );
 }
