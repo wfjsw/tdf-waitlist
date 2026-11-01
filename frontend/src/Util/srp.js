@@ -1,13 +1,23 @@
 // "50M" for 50,000,000; "55.5M" for 55,500,000. Smaller amounts are shown in full.
 export function formatIsk(amount) {
   if (amount === null || amount === undefined) return "";
-  if (amount >= 1000000) return `${Number((amount / 1000000).toFixed(1))}M`;
+  if (amount >= 1000000) {
+    // Keep a clean one-decimal "M" only when it is exact: a threshold like 50,049,999 must not
+    // round down to "50M" and be paid short.
+    if (Number.isInteger((amount / 1000000) * 10)) {
+      return `${Number((amount / 1000000).toFixed(1))}M`;
+    }
+  }
   return amount.toLocaleString();
 }
 
 // Local wall-clock time without seconds, e.g. "14:41"
 export function formatClock(dateObj) {
-  return dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return dateObj.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
 }
 
 // Whole calendar days from now to dateObj in local time: 0 = today, 1 = tomorrow
@@ -18,7 +28,12 @@ export function daysFromToday(dateObj) {
 
 // Clock time in UTC (EVE time) without seconds, e.g. "14:05"
 export function formatClockUtc(dateObj) {
-  return dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+  return dateObj.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "UTC",
+  });
 }
 
 const plural = (n, unit) => `${n} ${unit}${n === 1 ? "" : "s"}`;

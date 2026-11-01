@@ -31,7 +31,7 @@ function useSrpStatus(characterIds, waitlistId) {
       apiCall(`/api/srp/status?character_ids=${idsParam}&waitlist_id=${waitlistId}`, {}).then(
         (data) => {
           if (cancelled) return;
-          setStatus(data && data.available ? data : null);
+          setStatus(data && data.available ? { ...data, waitlistId } : null);
           if (data && data.applies === false) stop();
         },
         () => {
@@ -52,7 +52,8 @@ function useSrpStatus(characterIds, waitlistId) {
     };
   }, [idsParam, waitlistId]);
 
-  return status;
+  // The old answer is cleared in the effect after paint; ignore it in the meantime too.
+  return status && status.waitlistId === waitlistId ? status : null;
 }
 
 // Sits at the right-hand end of the waitlist's Buttons row; `&&` beats the row's own margins
@@ -222,7 +223,7 @@ function coveredUntil(t, language, expiresAt) {
   const date = new Date(expiresAt * 1000);
   const time = formatClock(date);
   const days = daysFromToday(date);
-  if (days === 0) return t("srp_today", { time });
+  if (days <= 0) return t("srp_today", { time });
   if (days === 1) return t("srp_tomorrow", { time });
   return t("srp_date_time", { date: date.toLocaleDateString(language), time });
 }
@@ -311,7 +312,7 @@ export function SrpStatus({ waitlistId }) {
     ? paidRows
         .map((c) => paidLine(t, i18n.language, "srp_paid_line", c.name, byId[c.id]))
         .join("\n")
-    : t("srp_unpaid_hint", { hours: status.coverage_hours });
+    : t("srp_unpaid_hint", { count: status.coverage_hours });
 
   const amount = formatIsk(status.min_amount);
   const checked = status.checked_at && formatClock(new Date(status.checked_at * 1000));
@@ -369,7 +370,7 @@ export function SrpStatus({ waitlistId }) {
           <p>
             <Trans t={t} i18nKey="srp_pay_1" values={{ amount }} components={{ b: <b /> }} />
           </p>
-          <p>{t("srp_pay_2", { hours: status.coverage_hours })}</p>
+          <p>{t("srp_pay_2", { count: status.coverage_hours })}</p>
           {anyPaid && (
             <>
               <h4>
