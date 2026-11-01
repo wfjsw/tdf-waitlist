@@ -167,12 +167,13 @@ async fn fetch(
     config: &SrpConfig,
     conn: &connection::Connection,
 ) -> Result<WalletRead, String> {
-    let (seat_token, new_refresh_token) = within(async {
-        esi.refresh_seat_login(&conn.refresh_token)
-            .await
-            .map_err(describe_token_error)
-    })
-    .await?;
+    // Not inside `within`: SeAT may rotate the refresh token in this response, and cancelling the
+    // future after SeAT issued a new one drops it, revoking the only working token. A hung exchange
+    // therefore waits, but the steps that read ESI stay timed.
+    let (seat_token, new_refresh_token) = esi
+        .refresh_seat_login(&conn.refresh_token)
+        .await
+        .map_err(describe_token_error)?;
     if let Some(new_refresh_token) = new_refresh_token {
         store_refresh_token(db, conn, &new_refresh_token).await?;
     }
