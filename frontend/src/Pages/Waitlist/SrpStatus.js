@@ -8,8 +8,8 @@ import { daysFromToday, formatClock, formatIsk } from "../../Util/srp";
 const POLL_MS = 60000;
 
 // Fetches the SRP status of the given characters on the given waitlist and keeps it fresh while the
-// tab is visible. Returns null whenever we don't know (feature off, no SRP corp for this waitlist,
-// wallet not readable, request failed): the caller then shows nothing, so a pilot is never told
+// tab is visible. Returns null whenever we don't know (no SRP wallet for this waitlist, wallet not
+// readable, request failed): the caller then shows nothing, so a pilot is never told
 // they haven't paid when we can't tell. Stops polling once the server says SRP will never apply
 // here, until the waitlist or the characters change.
 function useSrpStatus(characterIds, waitlistId) {

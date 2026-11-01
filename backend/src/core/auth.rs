@@ -210,6 +210,7 @@ fn build_access_levels() -> BTreeMap<String, BTreeSet<String>> {
             "waitlist-tag:HQ-FC",
             "notes-view",
             "notes-add",
+            "srp-manage",
         ],
     );
     build_level(
@@ -229,7 +230,6 @@ fn build_access_levels() -> BTreeMap<String, BTreeSet<String>> {
         "council",
         vec![
             // "access-manage:fc-trainer",
-            "srp-manage",
         ],
     );
     build_level(

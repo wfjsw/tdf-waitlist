@@ -15,6 +15,9 @@ use crate::core::auth::{AuthenticatedAccount, AuthenticationError, CookieSetter}
 use crate::core::esi::{ESIError, ESIScope, SEAT_LOGIN_SCOPES};
 use crate::util::{madness::Madness, types};
 
+/// How long an ordinary login's OAuth state stays valid
+const LOGIN_STATE_MAX_AGE_SECS: u32 = 30 * 60;
+
 pub struct RealIP(IpAddr);
 
 #[rocket::async_trait]
@@ -75,13 +78,6 @@ async fn whoami(
     let mut access_levels = Vec::new();
     for key in account.access {
         access_levels.push(key.as_str());
-    }
-    // Named SRP managers get the SRP wallet page without a council role
-    let named: Vec<(i64, &str)> = characters.iter().map(|c| (c.id, c.name.as_str())).collect();
-    if !account.access.contains("srp-manage")
-        && crate::core::srp::named_manager(&app.config.srp.managers, &named)
-    {
-        access_levels.push("srp-manage");
     }
 
     Ok(Json(WhoamiResponse {
@@ -146,6 +142,8 @@ fn login_url(/*fc: bool, client_ip: RealIP,*/ app: &rocket::State<app::Applicati
 
 /// The SeAT login URL. SeAT accepts a single redirect URI, so every login, including connecting
 /// the SRP wallet, comes back through `callback`; `state` says which kind it was.
+/// The state is Branca-encrypted and authenticated: what it carries (account, character and
+/// waitlist ids for a connect) stays out of the URL and browser history, and can't be forged.
 pub fn authorize_url(app: &app::Application, scopes: &[ESIScope], state: &[u8]) -> String {
     let mut branca = Branca::new(&app.token_secret).unwrap();
     let state = branca.encode(state).unwrap();
@@ -217,16 +215,35 @@ async fn handle_callback(
         None => return Err(Madness::BadRequest("No state provided".to_owned())),
     };
 
-    let state_bytes = match branca.decode(state, 1800) {
-        Ok(state) => state,
-        Err(_) => return Err(Madness::BadRequest("Invalid state".to_owned())),
-    };
+    // Connect logins are short-lived; an ordinary login may take longer. A connect state that
+    // only the longer limit accepts is caught as expired below.
+    let (state_bytes, fresh) =
+        match branca.decode(state, crate::core::srp::CONNECT_STATE_MAX_AGE_SECS) {
+            Ok(state) => (state, true),
+            Err(_) => match branca.decode(state, LOGIN_STATE_MAX_AGE_SECS) {
+                Ok(state) => (state, false),
+                Err(_) => return Err(Madness::BadRequest("Invalid state".to_owned())),
+            },
+        };
 
     // Connecting the SRP wallet: not a login, and must not touch the admin's own tokens
-    if let Some(character_id) = crate::core::srp::parse_connect_state(&state_bytes) {
-        let redirect =
-            super::srp::finish_connect(app, account_raw.ok(), code, character_id).await;
-        return Ok(CallbackResponse::Redirect(redirect));
+    if let Some(connect) = crate::core::srp::parse_connect_state(&state_bytes) {
+        // This includes states minted before the age was carried: the short decode above bounds
+        // those too
+        if fresh {
+            let redirect = super::srp::finish_connect(app, account_raw.ok(), code, connect).await;
+            return Ok(CallbackResponse::Redirect(redirect));
+        }
+    }
+    // A connect login that expired or was tampered with: back to the page with the reason
+    if state_bytes.starts_with(b"srpconnect:") {
+        let now = chrono::Utc::now().timestamp();
+        app.srp_state.write().connect_failed(
+            now,
+            "The connect login expired or is invalid. Start it again from the SRP wallet page."
+                .to_string(),
+        );
+        return Ok(CallbackResponse::Redirect(Redirect::to("/fc/srp")));
     }
 
     if state_bytes != b"oauthhellostate" {
