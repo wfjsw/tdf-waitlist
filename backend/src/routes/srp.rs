@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use rocket::response::Redirect;
 use rocket::serde::json::Json;
@@ -16,22 +16,14 @@ use crate::{
     util::madness::Madness,
 };
 
-// Enough for a large multiboxer's characters across linked accounts; stops the route being
-// used for bulk lookups
-const MAX_CHARACTERS: usize = 300;
-// Larger than any fleet the waitlist runs
-const MAX_FLEET_CHARACTERS: usize = 300;
-
-fn parse_ids(character_ids: &str, max: usize) -> Result<Vec<i64>, Madness> {
+fn parse_ids(character_ids: &str) -> Result<Vec<i64>, Madness> {
     let ids = character_ids
         .split(',')
         .map(|id| id.trim().parse::<i64>())
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| Madness::BadRequest("Invalid character_ids".to_string()))?;
-    match ids.len() > max {
-        true => Err(Madness::BadRequest("Too many characters".to_string())),
-        false => Ok(ids),
-    }
+    let mut seen = HashSet::new();
+    Ok(ids.into_iter().filter(|id| seen.insert(*id)).collect())
 }
 
 #[derive(Debug, Serialize)]
@@ -119,7 +111,7 @@ async fn status(
     character_ids: &str,
     waitlist_id: i64,
 ) -> Result<Json<StatusResponse>, Madness> {
-    let ids = parse_ids(character_ids, MAX_CHARACTERS)?;
+    let ids = parse_ids(character_ids)?;
 
     let config = &app.config.srp;
     let rule = Rule::from_config(config);
@@ -195,7 +187,7 @@ async fn fleet_status(
     waitlist_id: i64,
 ) -> Result<Json<FleetStatusResponse>, Madness> {
     account.require_access("fleet-view")?;
-    let ids = parse_ids(character_ids, MAX_FLEET_CHARACTERS)?;
+    let ids = parse_ids(character_ids)?;
 
     let config = &app.config.srp;
     let corporation_id = match config.enable {
@@ -666,18 +658,13 @@ mod tests {
         }
     }
 
-    // The fleet page tells "may have paid, can't show yet" from "not paid" by the data's age
     #[test]
-    fn status_accepts_a_large_account() {
-        let ids: Vec<String> = (1..=MAX_CHARACTERS).map(|id| id.to_string()).collect();
-        assert_eq!(
-            parse_ids(&ids.join(","), MAX_CHARACTERS).unwrap().len(),
-            MAX_CHARACTERS
-        );
-
-        let ids: Vec<String> = (1..=MAX_CHARACTERS + 1).map(|id| id.to_string()).collect();
-        assert!(parse_ids(&ids.join(","), MAX_CHARACTERS).is_err());
+    fn character_ids_are_parsed_and_deduplicated() {
+        assert_eq!(parse_ids("1, 2,1,3").unwrap(), vec![1, 2, 3]);
+        assert!(parse_ids("1,x").is_err());
     }
+
+    // The fleet page tells "may have paid, can't show yet" from "not paid" by the data's age
 
     #[test]
     fn status_carries_when_the_wallet_data_was_produced() {
