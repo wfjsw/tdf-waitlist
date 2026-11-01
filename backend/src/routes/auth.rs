@@ -8,7 +8,7 @@ use rocket::request::{FromRequest, Outcome};
 use rocket::response::Redirect;
 use rocket::serde::json::Json;
 use rocket::{request, Request};
-use serde::{Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::app;
 use crate::core::auth::{AuthenticatedAccount, AuthenticationError, CookieSetter};
