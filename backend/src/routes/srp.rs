@@ -76,7 +76,7 @@ fn waitlist_status(
         Some(c) => c,
         None => return WaitlistStatus::NotApplicable,
     };
-    match state.corp(corporation_id) {
+    match state.corp(corporation_id, rule.division) {
         Some(corp) if corp.is_fresh(now) => WaitlistStatus::Available {
             checked_at: corp.checked_at,
             data_as_of: corp.data_as_of,
@@ -98,6 +98,7 @@ struct StatusResponse {
     /// connected, or failing for over two hours): show nothing rather than guess
     available: bool,
     checked_at: Option<i64>,
+    division: i32,
     min_amount: i64,
     coverage_hours: i64,
     characters: Vec<CharacterStatus>,
@@ -113,19 +114,23 @@ async fn status(
 ) -> Result<Json<StatusResponse>, Madness> {
     let ids = parse_ids(character_ids)?;
 
-    let rule = srp::RULE;
     let now = chrono::Utc::now().timestamp();
+    // The waitlist's own rule, also when SRP doesn't feed it: the page can then still say what its
+    // payments would count
+    let target = srp::waitlists::target(app.get_db(), waitlist_id).await?;
+    let rule = target.as_ref().map(|t| t.rule).unwrap_or_default();
     let nothing = |applies| StatusResponse {
         applies,
         available: false,
         checked_at: None,
-        min_amount: srp::MIN_AMOUNT,
-        coverage_hours: srp::COVERAGE_HOURS,
+        division: rule.division,
+        min_amount: rule.min_amount_isk(),
+        coverage_hours: rule.coverage_hours(),
         characters: Vec::new(),
     };
 
     // Before checking the characters: most requests come from waitlists SRP doesn't apply to
-    let corporation_id = match srp::waitlists::corporation_of(app.get_db(), waitlist_id).await? {
+    let corporation_id = match target.and_then(|t| t.corporation_id) {
         Some(c) => c,
         None => return Ok(Json(nothing(false))),
     };
@@ -155,8 +160,9 @@ async fn status(
         applies: true,
         available: true,
         checked_at,
-        min_amount: srp::MIN_AMOUNT,
-        coverage_hours: srp::COVERAGE_HOURS,
+        division: rule.division,
+        min_amount: rule.min_amount_isk(),
+        coverage_hours: rule.coverage_hours(),
         characters,
     }))
 }
@@ -185,9 +191,16 @@ async fn fleet_status(
     account.require_access("fleet-view")?;
     let ids = parse_ids(character_ids)?;
 
-    let corporation_id = srp::waitlists::corporation_of(app.get_db(), waitlist_id).await?;
+    let target = srp::waitlists::target(app.get_db(), waitlist_id).await?;
     let now = chrono::Utc::now().timestamp();
-    let status = waitlist_status(&app.srp_state.read(), corporation_id, &ids, now, &srp::RULE);
+    let rule = target.as_ref().map(|t| t.rule).unwrap_or_default();
+    let status = waitlist_status(
+        &app.srp_state.read(),
+        target.and_then(|t| t.corporation_id),
+        &ids,
+        now,
+        &rule,
+    );
 
     let response = match status {
         WaitlistStatus::Available {
@@ -234,7 +247,21 @@ struct RecentPayment {
     via: Via,
 }
 
-/// One connected SRP wallet account and its check
+/// One division a waitlist of the corp reads, with its check
+#[derive(Debug, Serialize)]
+struct WalletCheck {
+    division: i32,
+    /// The loosest rule of the waitlists reading this division: what `recent` counts
+    min_amount: i64,
+    coverage_hours: i64,
+    checked_at: Option<i64>,
+    last_error: Option<String>,
+    /// Payments still inside the coverage window, newest first. How an admin checks the result
+    /// against the in-game wallet.
+    recent: Vec<RecentPayment>,
+}
+
+/// One connected SRP wallet account and its checks
 #[derive(Debug, Serialize)]
 struct Wallet {
     character: NamedCharacter,
@@ -242,11 +269,8 @@ struct Wallet {
     corporation_name: String,
     connected_by: NamedCharacter,
     connected_at: i64,
-    checked_at: Option<i64>,
-    last_error: Option<String>,
-    /// Payments still inside the coverage window, newest first. How an admin checks the result
-    /// against the in-game wallet.
-    recent: Vec<RecentPayment>,
+    /// One per division a waitlist of this corp uses; empty while none does
+    checks: Vec<WalletCheck>,
 }
 
 #[derive(Debug, Serialize)]
@@ -259,15 +283,25 @@ struct AdminWaitlist {
     /// A corp it used before the account was picked (or while its wallet is disconnected), from
     /// the migration; the character wins once set.
     corporation_id: Option<i64>,
+    /// The rule the waitlist applies
+    division: i32,
+    min_amount: i64,
+    coverage_hours: i64,
     set_by: Option<NamedCharacter>,
     set_at: Option<i64>,
 }
 
+/// What a waitlist with no rule yet starts with
 #[derive(Debug, Serialize)]
-struct AdminResponse {
+struct RuleDefaults {
+    division: i32,
     min_amount: i64,
     coverage_hours: i64,
-    division: i32,
+}
+
+#[derive(Debug, Serialize)]
+struct AdminResponse {
+    defaults: RuleDefaults,
     /// Why the last connect failed, for a few minutes after it did
     connect_error: Option<String>,
     /// By corp name, then character
@@ -288,42 +322,90 @@ async fn admin_status(
 ) -> Result<Json<AdminResponse>, Madness> {
     require_manager(&account)?;
 
-    let rule = srp::RULE;
     let now = chrono::Utc::now().timestamp();
 
     let connections = connection::all(app.get_db()).await?;
     let waitlists = srp::waitlists::list(app.get_db()).await?;
 
+    // A migrated waitlist may only have kept a corp: if an account of that corp is connected, it
+    // is what feeds the waitlist now, so show it as the row's wallet
+    let mut account_for_corp: HashMap<i64, i64> = HashMap::new();
+    let mut corp_for_character: HashMap<i64, i64> = HashMap::new();
+    for c in &connections {
+        account_for_corp
+            .entry(c.corporation_id)
+            .or_insert(c.character_id);
+        corp_for_character.insert(c.character_id, c.corporation_id);
+    }
+
+    // Per corp and division: the loosest rule of the waitlists that read it. The checks below and
+    // their recent payments use it, so an admin sees everything any of those waitlists counts.
+    let mut rules: HashMap<(i64, i32), srp::Rule> = HashMap::new();
+    for w in &waitlists {
+        let corporation = match (w.character_id, w.pending_corporation_id) {
+            (Some(character_id), _) => corp_for_character.get(&character_id).copied(),
+            (None, corporation_id) => corporation_id,
+        };
+        let rule = w.rule();
+        if let Some(corporation) = corporation {
+            rules
+                .entry((corporation, rule.division))
+                .and_modify(|existing| *existing = existing.loosest(rule))
+                .or_insert(rule);
+        }
+    }
+
     // Copied out so the lock isn't held across the name lookup below
     struct Check {
+        division: i32,
+        rule: srp::Rule,
         checked_at: Option<i64>,
         last_error: Option<String>,
         recent: Vec<(i64, Payment)>,
     }
     let (connect_error, checks) = {
         let state = app.srp_state.read();
-        let checks: Vec<Check> = connections
+        let checks: Vec<Vec<Check>> = connections
             .iter()
-            .map(|c| match state.corp(c.corporation_id) {
-                Some(corp) => Check {
-                    checked_at: corp.checked_at,
-                    last_error: corp.last_error.clone(),
-                    recent: corp.recent(now, &rule),
-                },
-                None => Check {
-                    checked_at: None,
-                    last_error: None,
-                    recent: Vec::new(),
-                },
+            .map(|c| {
+                let mut divisions: Vec<(i32, srp::Rule)> = rules
+                    .iter()
+                    .filter(|((corporation, _), _)| *corporation == c.corporation_id)
+                    .map(|((_, division), rule)| (*division, *rule))
+                    .collect();
+                divisions.sort_by_key(|(division, _)| *division);
+                divisions
+                    .into_iter()
+                    .map(
+                        |(division, rule)| match state.corp(c.corporation_id, division) {
+                            Some(corp) => Check {
+                                division,
+                                rule,
+                                checked_at: corp.checked_at,
+                                last_error: corp.last_error.clone(),
+                                recent: corp.recent(now, &rule),
+                            },
+                            None => Check {
+                                division,
+                                rule,
+                                checked_at: None,
+                                last_error: None,
+                                recent: Vec::new(),
+                            },
+                        },
+                    )
+                    .collect()
             })
             .collect();
         (state.recent_connect_error(now), checks)
     };
 
     let mut ids: Vec<i64> = Vec::new();
-    for (c, check) in connections.iter().zip(&checks) {
+    for (c, checks) in connections.iter().zip(&checks) {
         ids.extend([c.character_id, c.connected_by]);
-        ids.extend(check.recent.iter().map(|(id, _)| *id));
+        for check in checks {
+            ids.extend(check.recent.iter().map(|(id, _)| *id));
+        }
     }
     ids.extend(waitlists.iter().filter_map(|w| w.set_by));
     ids.extend(waitlists.iter().filter_map(|w| w.character_id));
@@ -333,64 +415,74 @@ async fn admin_status(
         name: names.get(&id).map(|c| c.name.clone()),
     };
 
-    // A migrated waitlist may only have kept a corp: if an account of that corp is connected, it
-    // is what feeds the waitlist now, so show it as the row's wallet
-    let mut account_for_corp: HashMap<i64, i64> = HashMap::new();
-    for c in &connections {
-        account_for_corp
-            .entry(c.corporation_id)
-            .or_insert(c.character_id);
-    }
-
     let wallets = connections
         .into_iter()
         .zip(checks)
-        .map(|(c, check)| Wallet {
+        .map(|(c, checks)| Wallet {
             character: named(c.character_id),
             corporation_id: c.corporation_id,
             corporation_name: c.corporation_name,
             connected_by: named(c.connected_by),
             connected_at: c.connected_at,
-            checked_at: check.checked_at,
-            last_error: check.last_error,
-            recent: check
-                .recent
+            checks: checks
                 .into_iter()
-                .map(|(id, p)| RecentPayment {
-                    character: named(id),
-                    amount: p.amount,
-                    paid_at: p.paid_at,
-                    expires_at: rule.expires_at(p.paid_at),
-                    via: p.via,
+                .map(|check| {
+                    let rule = check.rule;
+                    WalletCheck {
+                        division: check.division,
+                        min_amount: rule.min_amount_isk(),
+                        coverage_hours: rule.coverage_hours(),
+                        checked_at: check.checked_at,
+                        last_error: check.last_error,
+                        recent: check
+                            .recent
+                            .into_iter()
+                            .map(|(id, p)| RecentPayment {
+                                character: named(id),
+                                amount: p.amount,
+                                paid_at: p.paid_at,
+                                expires_at: rule.expires_at(p.paid_at),
+                                via: p.via,
+                            })
+                            .collect(),
+                    }
                 })
                 .collect(),
         })
         .collect();
 
     Ok(Json(AdminResponse {
-        min_amount: srp::MIN_AMOUNT,
-        coverage_hours: srp::COVERAGE_HOURS,
-        division: srp::DIVISION,
+        defaults: RuleDefaults {
+            division: srp::DEFAULT_DIVISION,
+            min_amount: srp::DEFAULT_MIN_AMOUNT,
+            coverage_hours: srp::DEFAULT_COVERAGE_HOURS,
+        },
         connect_error,
         wallets,
         waitlists: waitlists
             .into_iter()
-            .map(|w| AdminWaitlist {
-                id: w.id,
-                character: w
-                    .character_id
-                    .or_else(|| {
-                        w.pending_corporation_id
-                            .and_then(|c| account_for_corp.get(&c).copied())
-                    })
-                    .map(|id| NamedCharacter {
-                        id,
-                        name: names.get(&id).map(|c| c.name.clone()),
-                    }),
-                corporation_id: w.pending_corporation_id,
-                name: w.name,
-                set_by: w.set_by.map(named),
-                set_at: w.set_at,
+            .map(|w| {
+                let rule = w.rule();
+                AdminWaitlist {
+                    id: w.id,
+                    character: w
+                        .character_id
+                        .or_else(|| {
+                            w.pending_corporation_id
+                                .and_then(|c| account_for_corp.get(&c).copied())
+                        })
+                        .map(|id| NamedCharacter {
+                            id,
+                            name: names.get(&id).map(|c| c.name.clone()),
+                        }),
+                    corporation_id: w.pending_corporation_id,
+                    division: rule.division,
+                    min_amount: rule.min_amount_isk(),
+                    coverage_hours: rule.coverage_hours(),
+                    name: w.name,
+                    set_by: w.set_by.map(named),
+                    set_at: w.set_at,
+                }
             })
             .collect(),
     }))
@@ -461,12 +553,21 @@ async fn disconnect(
 }
 
 #[derive(Deserialize)]
+struct RuleInput {
+    division: i32,
+    min_amount: i64,
+    coverage_hours: i64,
+}
+
+#[derive(Deserialize)]
 struct SetWaitlist {
     waitlist_id: i64,
     /// None for no SRP, or for a corporation_id to keep as the fallback
     character_id: Option<i64>,
     /// The corp kept for a waitlist whose wallet account is gone
     corporation_id: Option<i64>,
+    /// The rule to apply; None keeps the current one
+    rule: Option<RuleInput>,
 }
 
 /// Sets which wallet account pays SRP for a waitlist, or none
@@ -504,12 +605,26 @@ async fn set_waitlist(
         }
     }
 
+    let rule = match &input.rule {
+        Some(rule) => {
+            srp::validate_rule(rule.division, rule.min_amount, rule.coverage_hours)
+                .map_err(Madness::BadRequest)?;
+            Some(srp::Rule::new(
+                rule.division,
+                rule.min_amount,
+                rule.coverage_hours,
+            ))
+        }
+        None => None,
+    };
+
     let now = chrono::Utc::now().timestamp();
     if srp::waitlists::set(
         app.get_db(),
         input.waitlist_id,
         input.character_id,
         input.corporation_id,
+        rule,
         account.id,
         now,
     )
@@ -529,6 +644,19 @@ async fn set_waitlist(
                 name, input.waitlist_id, account.id
             ),
         }
+        if let Some(rule) = rule {
+            info!(
+                "SRP rule on waitlist {} ({}) now division {}, {} ISK, {}h cover, by {}",
+                name,
+                input.waitlist_id,
+                rule.division,
+                rule.min_amount_isk(),
+                rule.coverage_hours(),
+                account.id
+            );
+        }
+        // A new assignment or division shouldn't wait for the periodic pass
+        app.srp_state.check_now();
     }
     Ok("OK")
 }
@@ -677,6 +805,7 @@ async fn save_connection(
                     waitlist_id,
                     Some(character_id),
                     Some(corporation_id),
+                    None,
                     account.id,
                     chrono::Utc::now().timestamp(),
                 )
@@ -727,6 +856,10 @@ mod tests {
         .into()
     }
 
+    fn rule() -> Rule {
+        Rule::default()
+    }
+
     fn paid_ids(status: WaitlistStatus) -> Vec<i64> {
         match status {
             WaitlistStatus::Available { characters, .. } => characters
@@ -748,16 +881,13 @@ mod tests {
 
     #[test]
     fn status_carries_when_the_wallet_data_was_produced() {
-        let rule = Rule {
-            min_amount: 50_000_000.0,
-            coverage_secs: 24 * 3600,
-        };
+        let rule = rule();
         let mut state = SrpState::default();
         let read = srp::WalletRead {
             paid: paid(1),
             data_as_of: Some(NOW - 1200),
         };
-        state.corp_mut(TDF_CORP).apply(0, Ok(read), NOW);
+        state.corp_mut(TDF_CORP, rule.division).apply(Ok(read), NOW);
         match waitlist_status(&state, Some(TDF_CORP), &[1, 2], NOW, &rule) {
             WaitlistStatus::Available {
                 checked_at,
@@ -775,14 +905,15 @@ mod tests {
     // they paid
     #[test]
     fn each_waitlist_counts_only_its_own_corps_payments() {
-        let rule = Rule {
-            min_amount: 50_000_000.0,
-            coverage_secs: 24 * 3600,
-        };
+        let rule = rule();
         let mut state = SrpState::default();
         // Character 1 paid the TDF corp, character 2 the CN corp
-        state.corp_mut(TDF_CORP).apply(0, Ok(paid(1).into()), NOW);
-        state.corp_mut(CN_CORP).apply(0, Ok(paid(2).into()), NOW);
+        state
+            .corp_mut(TDF_CORP, rule.division)
+            .apply(Ok(paid(1).into()), NOW);
+        state
+            .corp_mut(CN_CORP, rule.division)
+            .apply(Ok(paid(2).into()), NOW);
         let pilots = [1, 2, 3];
 
         let tdf_waitlist = waitlist_status(&state, Some(TDF_CORP), &pilots, NOW, &rule);
@@ -810,12 +941,79 @@ mod tests {
         assert_eq!(paid_ids(tdf_waitlist), vec![1]);
     }
 
+    // Two waitlists on one corp's division: the check runs with the loosest rule, each waitlist
+    // then applies its own
+    #[test]
+    fn each_waitlist_applies_its_own_rule() {
+        let mut state = SrpState::default();
+        let mut payments = paid(1);
+        payments.insert(
+            2,
+            Payment {
+                paid_at: NOW - 30 * 3600,
+                amount: 150_000_000.0,
+                via: Via::Donation,
+            },
+        );
+        state.corp_mut(TDF_CORP, 1).apply(Ok(payments.into()), NOW);
+
+        let strict = Rule::new(1, 100_000_000, 24);
+        let loose = Rule::new(1, 50_000_000, 48);
+        let pilots = [1, 2, 3];
+        assert!(paid_ids(waitlist_status(
+            &state,
+            Some(TDF_CORP),
+            &pilots,
+            NOW,
+            &strict
+        ))
+        .is_empty());
+        assert_eq!(
+            paid_ids(waitlist_status(
+                &state,
+                Some(TDF_CORP),
+                &pilots,
+                NOW,
+                &loose
+            )),
+            vec![1, 2]
+        );
+    }
+
+    // The same corp can be watched in different divisions, which have separate journals
+    #[test]
+    fn a_waitlists_division_selects_the_journal() {
+        let mut state = SrpState::default();
+        state.corp_mut(TDF_CORP, 2).apply(Ok(paid(1).into()), NOW);
+        let pilots = [1];
+        let division_one = Rule::new(1, 50_000_000, 24);
+        let division_two = Rule::new(2, 50_000_000, 24);
+        // Division 1 was never read: nothing there to show
+        assert!(matches!(
+            waitlist_status(&state, Some(TDF_CORP), &pilots, NOW, &division_one),
+            WaitlistStatus::Unavailable
+        ));
+        assert_eq!(
+            paid_ids(waitlist_status(
+                &state,
+                Some(TDF_CORP),
+                &pilots,
+                NOW,
+                &division_two
+            )),
+            vec![1]
+        );
+        // Disconnecting clears every division of the corp
+        state.wallet_removed(TDF_CORP);
+        assert!(matches!(
+            waitlist_status(&state, Some(TDF_CORP), &pilots, NOW, &division_two),
+            WaitlistStatus::Unavailable
+        ));
+    }
+
     #[test]
     fn character_status_shows_only_current_cover() {
-        let rule = Rule {
-            min_amount: 50_000_000.0,
-            coverage_secs: 24 * 3600,
-        };
+        let rule = rule();
         let paid: HashMap<i64, Payment> = [(
             1,
             Payment {
@@ -836,10 +1034,11 @@ mod tests {
         assert!(!character_status(&paid, 2, 2000, &rule).paid);
     }
 
-    // Runs the real handler against a throwaway Postgres to check what corporation_id values
-    // set_waitlist accepts. Setup: docker run --rm -d -e POSTGRES_PASSWORD=pass -p 55432:5432
-    // postgres:16, then create database refute1 with `character` and `waitlist` tables and run
-    // sql/migration_postgres_0005.sql on it. Run with: cargo test --bin tdf_wl -- --ignored
+    // Runs the real handler against a throwaway Postgres to check what corporation_id values and
+    // rules set_waitlist accepts. Setup: docker run --rm -d -e POSTGRES_PASSWORD=pass
+    // -p 55432:5432 postgres:16, then create database refute1 with `character` and `waitlist`
+    // tables and run sql/migration_postgres_0005.sql and 0007 on it.
+    // Run with: cargo test --bin tdf_wl -- --ignored
     #[ignore = "needs a throwaway Postgres on 127.0.0.1:55432; see the comment"]
     #[rocket::async_test]
     async fn set_waitlist_corp_validation() {
@@ -948,6 +1147,7 @@ mod tests {
                 waitlist_id,
                 character_id: None,
                 corporation_id,
+                rule: None,
             })
         };
 
@@ -985,7 +1185,11 @@ mod tests {
         .unwrap();
         assert_eq!(row, (None, Some(98000002)));
         assert_eq!(
-            srp::waitlists::corporation_of(&pool, 42).await.unwrap(),
+            srp::waitlists::target(&pool, 42)
+                .await
+                .unwrap()
+                .unwrap()
+                .corporation_id,
             Some(98000002)
         );
 
@@ -995,6 +1199,7 @@ mod tests {
                 waitlist_id,
                 character_id: Some(character_id),
                 corporation_id: Some(corporation_id),
+                rule: None,
             })
         };
         assert!(matches!(
@@ -1020,13 +1225,72 @@ mod tests {
                 .unwrap();
         assert_eq!(character_id, Some(2));
         assert_eq!(
-            srp::waitlists::corporation_of(&pool, 42).await.unwrap(),
+            srp::waitlists::target(&pool, 42)
+                .await
+                .unwrap()
+                .unwrap()
+                .corporation_id,
             Some(98000002)
         );
         // Back to the bare corp for the disconnect case
         set_waitlist(state, account(), input(42, Some(98000002)))
             .await
             .unwrap();
+
+        // The rule is saved with the assignment, and each bound is checked before anything is
+        // written
+        let ruled = |division, min_amount, coverage_hours| {
+            Json(SetWaitlist {
+                waitlist_id: 42,
+                character_id: None,
+                corporation_id: Some(98000002),
+                rule: Some(RuleInput {
+                    division,
+                    min_amount,
+                    coverage_hours,
+                }),
+            })
+        };
+        set_waitlist(state, account(), ruled(2, 75_000_000, 48))
+            .await
+            .unwrap();
+        let saved: (i32, i64, i32) = sqlx::query_as(
+            "SELECT division, min_amount, coverage_hours FROM srp_waitlist WHERE waitlist_id = 42",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(saved, (2, 75_000_000, 48));
+        match set_waitlist(state, account(), ruled(8, 75_000_000, 48)).await {
+            Err(Madness::BadRequest(m)) => assert!(m.contains("division"), "{}", m),
+            other => panic!("expected rejection, got {:?}", other),
+        }
+        assert!(matches!(
+            set_waitlist(state, account(), ruled(1, -1, 48)).await,
+            Err(Madness::BadRequest(_))
+        ));
+        assert!(matches!(
+            set_waitlist(state, account(), ruled(1, 75_000_000, 0)).await,
+            Err(Madness::BadRequest(_))
+        ));
+        let after: (i32, i64, i32) = sqlx::query_as(
+            "SELECT division, min_amount, coverage_hours FROM srp_waitlist WHERE waitlist_id = 42",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(after, saved);
+        // Picking a wallet without a rule keeps the saved one
+        set_waitlist(state, account(), input(42, Some(98000002)))
+            .await
+            .unwrap();
+        let kept: (i32, i64, i32) = sqlx::query_as(
+            "SELECT division, min_amount, coverage_hours FROM srp_waitlist WHERE waitlist_id = 42",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(kept, saved);
 
         // The current corp survives a disconnect (migration case) and can be re-saved
         sqlx::query("DELETE FROM srp_connection")
@@ -1050,12 +1314,17 @@ mod tests {
                 waitlist_id: 42,
                 character_id: Some(2),
                 corporation_id: None,
+                rule: None,
             }),
         )
         .await
         .unwrap();
         assert_eq!(
-            srp::waitlists::corporation_of(&pool, 42).await.unwrap(),
+            srp::waitlists::target(&pool, 42)
+                .await
+                .unwrap()
+                .unwrap()
+                .corporation_id,
             None
         );
 
@@ -1125,9 +1394,12 @@ mod tests {
         .await
         .unwrap();
         // 10: assigned account 1, wallet gone, corp kept. 12: corp only. 11: corp only, no wallet.
+        // 12 carries its own rule, which its status must report
         sqlx::query(
-            "INSERT INTO srp_waitlist (waitlist_id, character_id, corporation_id, set_by, set_at)
-                VALUES (10, 1, 101, 1, 1), (12, NULL, 101, 1, 1), (11, NULL, 999, 1, 1)",
+            "INSERT INTO srp_waitlist (waitlist_id, character_id, corporation_id, set_by, set_at,
+                division, min_amount, coverage_hours)
+                VALUES (10, 1, 101, 1, 1, 1, 50000000, 24), (12, NULL, 101, 1, 1, 2, 60000000, 36),
+                    (11, NULL, 999, 1, 1, 1, 50000000, 24)",
         )
         .execute(&pool)
         .await
@@ -1180,6 +1452,8 @@ mod tests {
         // A corp-only row is fed by any account of that corp
         let answer = status(state, account(), "1", 12).await.unwrap().0;
         assert!(answer.applies && !answer.available);
+        // Its own rule, also while nothing can be shown
+        assert_eq!((answer.min_amount, answer.coverage_hours), (60_000_000, 36));
         let fleet = fleet_status(state, account(), "1", 12).await.unwrap().0;
         assert!(fleet.applies && !fleet.available);
 
@@ -1189,6 +1463,19 @@ mod tests {
         assert_eq!(row(10).character.as_ref().map(|c| c.id), Some(1));
         assert_eq!(row(12).character.as_ref().map(|c| c.id), Some(2));
         assert!(row(11).character.is_none());
+        assert_eq!(
+            (row(12).division, row(12).min_amount, row(12).coverage_hours),
+            (2, 60_000_000, 36)
+        );
+        // The wallet shows a check for the division its waitlist reads, under that rule
+        let wallet = admin.wallets.iter().find(|w| w.character.id == 2).unwrap();
+        assert_eq!(wallet.checks.len(), 1);
+        assert_eq!(wallet.checks[0].division, 2);
+        assert!(wallet.checks[0].checked_at.is_none());
+        assert_eq!(
+            (wallet.checks[0].min_amount, wallet.checks[0].coverage_hours),
+            (60_000_000, 36)
+        );
 
         disconnect(state, account(), Json(Disconnect { character_id: 2 }))
             .await

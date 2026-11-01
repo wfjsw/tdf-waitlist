@@ -60,6 +60,7 @@ export default {
             "srp_pay_1": "Give <b>{{amount}} ISK</b> to the SRP corp from each character that flies (right-click the corp in the fleet MOTD, Give Money), or take a {{amount}} ship loan contract.",
             "srp_pay_2_one": "Each character needs its own payment: paying on your main doesn't cover your alts. Cover lasts {{count}} hour.",
             "srp_pay_2_other": "Each character needs its own payment: paying on your main doesn't cover your alts. Cover lasts {{count}} hours.",
+            "srp_division": "Payments count in wallet division {{division}}.",
             "srp_pay_delay": "Payments can take up to an hour to appear (ship loan contracts about 5 min). Last checked {{time}}.",
         },
         "fleet": {
@@ -153,6 +154,7 @@ export default {
             "srp_pay_1": "请从每个出战的角色向 SRP 军团支付 <b>{{amount}} ISK</b>（在舰队 MOTD 中右键点击该军团，选择“给予金钱”），或者接受一份 {{amount}} 的舰船借贷合同。",
             "srp_pay_2_one": "每个角色都需要单独支付：在主号上付款不会覆盖你的小号。覆盖时长 {{count}} 小时。",
             "srp_pay_2_other": "每个角色都需要单独支付：在主号上付款不会覆盖你的小号。覆盖时长 {{count}} 小时。",
+            "srp_division": "付款按钱包分区 {{division}} 计算。",
             "srp_pay_delay": "付款最长可能需要一小时才会显示（舰船借贷合同约需 5 分钟）。上次检查：{{time}}。",
         },
         "fleet": {

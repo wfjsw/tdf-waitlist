@@ -371,6 +371,9 @@ export function SrpStatus({ waitlistId }) {
             <Trans t={t} i18nKey="srp_pay_1" values={{ amount }} components={{ b: <b /> }} />
           </p>
           <p>{t("srp_pay_2", { count: status.coverage_hours })}</p>
+          {status.division !== 1 && (
+            <p className="muted">{t("srp_division", { division: status.division })}</p>
+          )}
           {anyPaid && (
             <>
               <h4>

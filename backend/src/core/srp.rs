@@ -1,8 +1,10 @@
 //! Who has paid SRP, worked out from the SRP corp's wallet journal and contracts.
 //!
-//! A character is covered for `coverage_hours` after sending `min_amount` or more to the SRP corp
-//! (a player donation), or after accepting a ship loan contract the corp issued for that much.
-//! Only the character who paid is covered, and payments don't stack: the latest one counts.
+//! A character is covered for a waitlist's `coverage_hours` after sending its `min_amount` or more
+//! in its `division` to the waitlist's SRP corp (a player donation), or after accepting a ship loan
+//! contract the corp issued for that much. Only the character who paid is covered, and payments
+//! don't stack: the latest one counts. The rule belongs to the waitlist (table srp_waitlist); the
+//! defaults are only what a new waitlist starts with.
 
 use std::collections::HashMap;
 use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -50,26 +52,60 @@ pub struct Payment {
     pub via: Via,
 }
 
-/// Wallet division that receives SRP payments (1 is the master wallet)
-pub const DIVISION: i32 = 1;
-/// ISK; this much or more counts
-pub const MIN_AMOUNT: i64 = 50_000_000;
-/// How long a payment covers the character who made it
-pub const COVERAGE_HOURS: i64 = 24;
+/// What a new waitlist starts with, and what the migration gave the existing ones. Each waitlist
+/// stores its own copy on the SRP wallet page; nothing falls back to these when the check reads.
+pub const DEFAULT_DIVISION: i32 = 1;
+pub const DEFAULT_MIN_AMOUNT: i64 = 50_000_000;
+pub const DEFAULT_COVERAGE_HOURS: i64 = 24;
 
-#[derive(Debug, Clone, Copy)]
+/// EVE corporations have seven wallet divisions
+pub const MAX_DIVISION: i32 = 7;
+/// Contracts are kept for 30 days, so a longer window pages for nothing
+pub const MAX_COVERAGE_HOURS: i64 = 24 * 30;
+
+/// The rule a waitlist's checks apply: payments of `min_amount` or more, in `division`, cover the
+/// payer for `coverage_secs`.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rule {
+    pub division: i32,
     pub min_amount: f64,
     pub coverage_secs: i64,
 }
 
-/// The rule every check applies
-pub const RULE: Rule = Rule {
-    min_amount: MIN_AMOUNT as f64,
-    coverage_secs: COVERAGE_HOURS * 3600,
-};
+impl Default for Rule {
+    fn default() -> Rule {
+        Rule::new(DEFAULT_DIVISION, DEFAULT_MIN_AMOUNT, DEFAULT_COVERAGE_HOURS)
+    }
+}
 
 impl Rule {
+    pub fn new(division: i32, min_amount: i64, coverage_hours: i64) -> Rule {
+        Rule {
+            division,
+            min_amount: min_amount as f64,
+            coverage_secs: coverage_hours * 3600,
+        }
+    }
+
+    /// As stored, without the loss the f64 amount would introduce
+    pub fn min_amount_isk(&self) -> i64 {
+        self.min_amount as i64
+    }
+
+    pub fn coverage_hours(&self) -> i64 {
+        self.coverage_secs / 3600
+    }
+
+    /// The rule that counts everything either one does. Several waitlists can share one corp's
+    /// division: its result is read once with this, and each waitlist then applies its own.
+    pub fn loosest(self, other: Rule) -> Rule {
+        Rule {
+            division: self.division,
+            min_amount: self.min_amount.min(other.min_amount),
+            coverage_secs: self.coverage_secs.max(other.coverage_secs),
+        }
+    }
+
     pub fn expires_at(&self, paid_at: i64) -> i64 {
         paid_at + self.coverage_secs
     }
@@ -77,6 +113,26 @@ impl Rule {
     pub fn covers(&self, paid_at: i64, now: i64) -> bool {
         self.expires_at(paid_at) > now
     }
+}
+
+/// Why a division, minimum amount or coverage is out of range, in words an admin can act on
+pub fn validate_rule(division: i32, min_amount: i64, coverage_hours: i64) -> Result<(), String> {
+    if !(1..=MAX_DIVISION).contains(&division) {
+        return Err(format!(
+            "The wallet division must be between 1 and {}.",
+            MAX_DIVISION
+        ));
+    }
+    if min_amount < 0 {
+        return Err("The minimum amount can't be negative.".to_string());
+    }
+    if !(1..=MAX_COVERAGE_HOURS).contains(&coverage_hours) {
+        return Err(format!(
+            "Coverage must be between 1 and {} hours.",
+            MAX_COVERAGE_HOURS
+        ));
+    }
+    Ok(())
 }
 
 /// The fields we use from ESI's corporation wallet journal
@@ -195,8 +251,10 @@ pub fn current_payment(
     now: i64,
     rule: &Rule,
 ) -> Option<Payment> {
+    // The stored entries were filtered by the loosest rule of every waitlist sharing the division;
+    // this waitlist's own amount and window decide here
     paid.get(&character_id)
-        .filter(|p| rule.covers(p.paid_at, now))
+        .filter(|p| p.amount >= rule.min_amount && rule.covers(p.paid_at, now))
         .copied()
 }
 
@@ -234,7 +292,7 @@ pub fn older(a: Option<i64>, b: Option<i64>) -> Option<i64> {
     }
 }
 
-/// One SRP corp's check results
+/// One SRP corp's wallet division and its check results
 #[derive(Debug, Default)]
 pub struct CorpState {
     pub paid: HashMap<i64, Payment>,
@@ -244,9 +302,6 @@ pub struct CorpState {
     pub data_as_of: Option<i64>,
     /// Why the last check failed, if it did, in words an admin can act on
     pub last_error: Option<String>,
-    /// Bumped whenever this corp's wallet is connected, reconnected or disconnected, so a check
-    /// that started before then throws its result away instead of publishing the old one's
-    generation: u64,
 }
 
 /// What `CorpState::apply` did with a check's result, for the log
@@ -268,18 +323,10 @@ impl CorpState {
         }
     }
 
-    /// Records a check's result. `generation` is the one the check started with: if the wallet
-    /// changed since, the result is about the old one. A failure keeps the last good result,
-    /// which stops being shown once it goes stale.
-    pub fn apply(
-        &mut self,
-        generation: u64,
-        result: Result<WalletRead, String>,
-        now: i64,
-    ) -> Applied {
-        if generation != self.generation {
-            return Applied::Discarded;
-        }
+    /// Records a check's result. A failure keeps the last good result, which stops being shown
+    /// once it goes stale. Whether the wallet changed meanwhile is `SrpState::apply`'s call: the
+    /// generation lives per corp, not per division.
+    pub fn apply(&mut self, result: Result<WalletRead, String>, now: i64) -> Applied {
         match result {
             Ok(read) => {
                 let recovered = self.last_error.is_some();
@@ -304,7 +351,7 @@ impl CorpState {
         let mut recent: Vec<(i64, Payment)> = self
             .paid
             .iter()
-            .filter(|(_, p)| rule.covers(p.paid_at, now))
+            .filter(|(_, p)| p.amount >= rule.min_amount && rule.covers(p.paid_at, now))
             .map(|(&id, &p)| (id, p))
             .collect();
         recent.sort_by_key(|(_, p)| std::cmp::Reverse(p.paid_at));
@@ -314,8 +361,13 @@ impl CorpState {
 
 #[derive(Debug, Default)]
 pub struct SrpState {
-    /// By SRP corp id
-    corps: HashMap<i64, CorpState>,
+    /// By SRP corp id and wallet division: each division has its own journal, and waitlists of
+    /// one corp can use different ones
+    corps: HashMap<(i64, i32), CorpState>,
+    /// Bumped per corp whenever a wallet of it is connected, reconnected or disconnected, so a
+    /// check that started before then throws its result away instead of publishing the old
+    /// wallet's
+    generations: HashMap<i64, u64>,
     /// When and why the last connect failed. Kept here rather than in the redirect URL, so a
     /// link can't put words on the admin page.
     connect_error: Option<ConnectError>,
@@ -328,37 +380,65 @@ struct ConnectError {
 }
 
 impl SrpState {
-    pub fn corp(&self, corporation_id: i64) -> Option<&CorpState> {
-        self.corps.get(&corporation_id)
+    pub fn corp(&self, corporation_id: i64, division: i32) -> Option<&CorpState> {
+        self.corps.get(&(corporation_id, division))
     }
 
-    pub fn corp_mut(&mut self, corporation_id: i64) -> &mut CorpState {
-        self.corps.entry(corporation_id).or_default()
+    pub fn corp_mut(&mut self, corporation_id: i64, division: i32) -> &mut CorpState {
+        self.corps.entry((corporation_id, division)).or_default()
     }
 
-    /// To pass to `CorpState::apply` when the check finishes
+    /// To pass to `apply` when the check finishes
     pub fn generation(&self, corporation_id: i64) -> u64 {
-        self.corp(corporation_id).map_or(0, |c| c.generation)
+        self.generations.get(&corporation_id).copied().unwrap_or(0)
+    }
+
+    fn bump(&mut self, corporation_id: i64) -> u64 {
+        let generation = self.generation(corporation_id) + 1;
+        self.generations.insert(corporation_id, generation);
+        generation
+    }
+
+    fn divisions_of(&mut self, corporation_id: i64) -> impl Iterator<Item = &mut CorpState> {
+        self.corps
+            .iter_mut()
+            .filter(move |((corp, _), _)| *corp == corporation_id)
+            .map(|(_, corp)| corp)
+    }
+
+    /// Records a check's result against the generation it started with. The result is discarded
+    /// when the corp's wallet changed meanwhile: it is about the old one.
+    pub fn apply(
+        &mut self,
+        corporation_id: i64,
+        division: i32,
+        generation: u64,
+        result: Result<WalletRead, String>,
+        now: i64,
+    ) -> Applied {
+        if generation != self.generation(corporation_id) {
+            return Applied::Discarded;
+        }
+        self.corp_mut(corporation_id, division).apply(result, now)
     }
 
     /// The corp's wallet was connected or reconnected. Its last good results stay until the new
     /// wallet's first check replaces them, so a reconnect that turns out wrong doesn't blank
     /// pilots' status.
     pub fn wallet_replaced(&mut self, corporation_id: i64) {
-        let corp = self.corp_mut(corporation_id);
-        corp.generation += 1;
-        corp.last_error = None;
+        self.bump(corporation_id);
+        for corp in self.divisions_of(corporation_id) {
+            corp.last_error = None;
+        }
         self.connect_error = None;
     }
 
-    /// The corp's wallet was disconnected
+    /// The corp's wallet was disconnected: what was read through it goes
     pub fn wallet_removed(&mut self, corporation_id: i64) {
-        let corp = self.corp_mut(corporation_id);
-        let generation = corp.generation + 1;
-        *corp = CorpState {
-            generation,
-            ..CorpState::default()
-        };
+        self.bump(corporation_id);
+        for corp in self.divisions_of(corporation_id) {
+            *corp = CorpState::default();
+        }
     }
 
     pub fn connect_failed(&mut self, now: i64, message: String) {
@@ -513,16 +593,6 @@ pub mod connection {
         .await
     }
 
-    /// One id per corp, for the periodic check: several accounts in the same corp read the same
-    /// wallet
-    pub async fn corporation_ids(db: &crate::DB) -> Result<Vec<i64>, sqlx::Error> {
-        sqlx::query_scalar(
-            "SELECT DISTINCT corporation_id FROM srp_connection ORDER BY corporation_id",
-        )
-        .fetch_all(db)
-        .await
-    }
-
     pub async fn get(db: &crate::DB, character_id: i64) -> Result<Option<Connection>, sqlx::Error> {
         sqlx::query_as::<_, Connection>(
             "SELECT character_id, corporation_id, corporation_name, refresh_token, connected_by,
@@ -625,10 +695,13 @@ pub mod connection {
     }
 }
 
-/// Which wallet account pays SRP for each waitlist (table srp_waitlist), set on the SRP wallet
-/// page. None until someone sets one: a deployment can be shared with communities that don't run
-/// SRP. Kept when the wallet is disconnected; the waitlist then shows nothing.
+/// Which wallet account pays SRP for each waitlist (table srp_waitlist) and the rule that waitlist
+/// applies, both set on the SRP wallet page. A waitlist has a row once either is set; no SRP means
+/// no wallet account and no corp. Both the wallet and the rule are kept when the wallet is
+/// disconnected (the waitlist then just shows nothing), so reconnecting doesn't lose them.
 pub mod waitlists {
+    use super::{Rule, DEFAULT_COVERAGE_HOURS, DEFAULT_DIVISION, DEFAULT_MIN_AMOUNT};
+
     #[derive(sqlx::FromRow)]
     pub struct Waitlist {
         pub id: i64,
@@ -636,22 +709,93 @@ pub mod waitlists {
         pub character_id: Option<i64>,
         /// The corp a migrated waitlist pointed at while it has no wallet account yet
         pub pending_corporation_id: Option<i64>,
+        /// The rule it applies; defaults filled in when it has no row yet
+        pub division: i32,
+        pub min_amount: i64,
+        pub coverage_hours: i64,
         /// Who set the wallet and when
         pub set_by: Option<i64>,
         pub set_at: Option<i64>,
     }
 
-    /// Every waitlist that isn't archived, with its SRP wallet
+    impl Waitlist {
+        pub fn rule(&self) -> Rule {
+            Rule::new(self.division, self.min_amount, self.coverage_hours)
+        }
+    }
+
+    /// What a waitlist's checks use: the corp that pays for its pilots and the rule it applies
+    pub struct Target {
+        /// None while the waitlist has no wallet account and no corp kept from the migration
+        pub corporation_id: Option<i64>,
+        pub rule: Rule,
+    }
+
+    /// One (corp, division) pair the updater must read, with the loosest rule of the waitlists
+    /// that read it
+    #[derive(Debug)]
+    pub struct Check {
+        pub corporation_id: i64,
+        pub division: i32,
+        pub rule: Rule,
+    }
+
+    #[derive(sqlx::FromRow)]
+    struct CheckRow {
+        corporation_id: i64,
+        division: i32,
+        min_amount: i64,
+        coverage_hours: i64,
+    }
+
+    /// Every waitlist that isn't archived, with its SRP wallet and rule
     pub async fn list(db: &crate::DB) -> Result<Vec<Waitlist>, sqlx::Error> {
         sqlx::query_as::<_, Waitlist>(
             "SELECT w.id, w.name, s.character_id, s.corporation_id AS pending_corporation_id,
+                COALESCE(s.division, $1) AS division,
+                COALESCE(s.min_amount, $2) AS min_amount,
+                COALESCE(s.coverage_hours, $3) AS coverage_hours,
                 s.set_by, s.set_at
                 FROM waitlist w
                 LEFT JOIN srp_waitlist s ON s.waitlist_id = w.id
                 WHERE NOT w.is_archived ORDER BY w.name",
         )
+        .bind(DEFAULT_DIVISION)
+        .bind(DEFAULT_MIN_AMOUNT)
+        .bind(DEFAULT_COVERAGE_HOURS)
         .fetch_all(db)
         .await
+    }
+
+    /// The pairs to check: every waitlist's assigned account's corp, or the corp a migrated
+    /// waitlist kept, at the division it uses. Shared pairs carry the loosest rule so one read
+    /// covers all of them.
+    pub async fn checks(db: &crate::DB) -> Result<Vec<Check>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, CheckRow>(
+            "SELECT corporation_id, division, MIN(min_amount) AS min_amount,
+                MAX(coverage_hours)::int8 AS coverage_hours
+                FROM (
+                    SELECT c.corporation_id, s.division, s.min_amount, s.coverage_hours
+                        FROM srp_waitlist s
+                        JOIN srp_connection c ON c.character_id = s.character_id
+                    UNION ALL
+                    SELECT s.corporation_id, s.division, s.min_amount, s.coverage_hours
+                        FROM srp_waitlist s
+                        WHERE s.character_id IS NULL AND s.corporation_id IS NOT NULL
+                ) pairs
+                GROUP BY corporation_id, division
+                ORDER BY corporation_id, division",
+        )
+        .fetch_all(db)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| Check {
+                corporation_id: row.corporation_id,
+                division: row.division,
+                rule: Rule::new(row.division, row.min_amount, row.coverage_hours),
+            })
+            .collect())
     }
 
     /// None when there's no such waitlist, or it's archived
@@ -665,18 +809,16 @@ pub mod waitlists {
             .await
     }
 
-    /// The corp whose payments cover the waitlist's pilots. An assigned account is the source: its
-    /// corp, or nothing while its wallet is disconnected. Only a corp-only assignment (a migration
-    /// leftover) resolves to the corp on its own.
-    pub async fn corporation_of(
-        db: &crate::DB,
-        waitlist_id: i64,
-    ) -> Result<Option<i64>, sqlx::Error> {
+    /// What feeds the waitlist. An assigned account is the source: its corp, or nothing while its
+    /// wallet is disconnected. Only a corp-only assignment (a migration leftover) resolves to the
+    /// corp on its own.
+    pub async fn target(db: &crate::DB, waitlist_id: i64) -> Result<Option<Target>, sqlx::Error> {
         // Option<Option>: no row, or a row that resolves to no corp. The scalar must be Option
         // or a NULL decode fails before the flatten.
-        let corporation: Option<Option<i64>> = sqlx::query_scalar(
-            "SELECT COALESCE(c.corporation_id,
-                    CASE WHEN s.character_id IS NULL THEN s.corporation_id END)
+        let row: Option<(i32, i64, i32, Option<Option<i64>>)> = sqlx::query_as(
+            "SELECT s.division, s.min_amount, s.coverage_hours,
+                    COALESCE(c.corporation_id,
+                        CASE WHEN s.character_id IS NULL THEN s.corporation_id END)
                 FROM srp_waitlist s
                 LEFT JOIN srp_connection c ON c.character_id = s.character_id
                 WHERE s.waitlist_id = $1",
@@ -684,7 +826,12 @@ pub mod waitlists {
         .bind(waitlist_id)
         .fetch_optional(db)
         .await?;
-        Ok(corporation.flatten())
+        Ok(row.map(
+            |(division, min_amount, coverage_hours, corporation)| Target {
+                corporation_id: corporation.flatten(),
+                rule: Rule::new(division, min_amount, coverage_hours as i64),
+            },
+        ))
     }
 
     /// The waitlist's current assignment: wallet character, and the corp it falls back to
@@ -701,47 +848,49 @@ pub mod waitlists {
         .unwrap_or((None, None)))
     }
 
-    /// Sets the waitlist's SRP wallet character, or the corp to fall back to while it has none, or
-    /// neither for no SRP. Returns whether anything changed.
+    /// Saves the waitlist's SRP wallet character, the corp to fall back to while it has none, and
+    /// its rule when one is given; NULL character and corp mean no SRP. Creating the row this way
+    /// fills the rule with the defaults. Returns whether anything changed.
     pub async fn set(
         db: &crate::DB,
         waitlist_id: i64,
         character_id: Option<i64>,
         corporation_id: Option<i64>,
+        rule: Option<Rule>,
         by: i64,
         now: i64,
     ) -> Result<bool, sqlx::Error> {
-        let query = match (character_id, corporation_id) {
-            (Some(character_id), corporation_id) => sqlx::query(
-                "INSERT INTO srp_waitlist (waitlist_id, character_id, corporation_id, set_by, set_at)
-                    VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT (waitlist_id) DO UPDATE
-                    SET character_id = $2, corporation_id = $3, set_by = $4, set_at = $5
-                    WHERE srp_waitlist.character_id IS DISTINCT FROM $2
-                        OR srp_waitlist.corporation_id IS DISTINCT FROM $3",
-            )
-            .bind(waitlist_id)
-            .bind(character_id)
-            .bind(corporation_id)
-            .bind(by)
-            .bind(now),
-            (None, Some(corporation_id)) => sqlx::query(
-                "INSERT INTO srp_waitlist (waitlist_id, character_id, corporation_id, set_by, set_at)
-                    VALUES ($1, NULL, $2, $3, $4)
-                    ON CONFLICT (waitlist_id) DO UPDATE
-                    SET character_id = NULL, corporation_id = $2, set_by = $3, set_at = $4
-                    WHERE srp_waitlist.corporation_id IS DISTINCT FROM $2
-                        OR srp_waitlist.character_id IS NOT NULL",
-            )
-            .bind(waitlist_id)
-            .bind(corporation_id)
-            .bind(by)
-            .bind(now),
-            (None, None) => {
-                sqlx::query("DELETE FROM srp_waitlist WHERE waitlist_id = $1").bind(waitlist_id)
-            }
-        };
-        Ok(query.execute(db).await?.rows_affected() == 1)
+        let result = sqlx::query(
+            "INSERT INTO srp_waitlist (waitlist_id, character_id, corporation_id,
+                    division, min_amount, coverage_hours, set_by, set_at)
+                VALUES ($1, $2, $3, COALESCE($4, $9), COALESCE($5, $10),
+                    COALESCE($6, $11), $7, $8)
+                ON CONFLICT (waitlist_id) DO UPDATE
+                SET character_id = $2, corporation_id = $3,
+                    division = COALESCE($4, srp_waitlist.division),
+                    min_amount = COALESCE($5, srp_waitlist.min_amount),
+                    coverage_hours = COALESCE($6, srp_waitlist.coverage_hours),
+                    set_by = $7, set_at = $8
+                WHERE srp_waitlist.character_id IS DISTINCT FROM $2
+                    OR srp_waitlist.corporation_id IS DISTINCT FROM $3
+                    OR ($4 IS NOT NULL AND srp_waitlist.division IS DISTINCT FROM $4)
+                    OR ($5 IS NOT NULL AND srp_waitlist.min_amount IS DISTINCT FROM $5)
+                    OR ($6 IS NOT NULL AND srp_waitlist.coverage_hours IS DISTINCT FROM $6)",
+        )
+        .bind(waitlist_id)
+        .bind(character_id)
+        .bind(corporation_id)
+        .bind(rule.map(|r| r.division))
+        .bind(rule.map(|r| r.min_amount_isk()))
+        .bind(rule.map(|r| r.coverage_hours()))
+        .bind(by)
+        .bind(now)
+        .bind(DEFAULT_DIVISION)
+        .bind(DEFAULT_MIN_AMOUNT)
+        .bind(DEFAULT_COVERAGE_HOURS)
+        .execute(db)
+        .await?;
+        Ok(result.rows_affected() == 1)
     }
 }
 
@@ -772,10 +921,7 @@ mod tests {
     const NOW: i64 = 1791558000;
 
     fn rule() -> Rule {
-        Rule {
-            min_amount: 50_000_000.0,
-            coverage_secs: 24 * 3600,
-        }
+        Rule::default()
     }
 
     fn donation(date: &str, from: i64, amount: f64) -> JournalEntry {
@@ -930,6 +1076,55 @@ mod tests {
         assert!(current_payment(&paid, 1, NOW + 24 * 3600, &rule()).is_none());
     }
 
+    // The stored payments are filtered by the loosest rule of every waitlist on the division; each
+    // waitlist then applies its own amount and window
+    #[test]
+    fn current_payment_applies_the_waitlists_own_amount() {
+        let paid = paid_from_journal(
+            &[donation("2026-10-09T13:00:00Z", 1, 60_000_000.0)],
+            NOW,
+            &rule(),
+        );
+        assert!(current_payment(&paid, 1, NOW, &Rule::new(1, 70_000_000, 24)).is_none());
+        assert!(current_payment(&paid, 1, NOW, &Rule::new(1, 60_000_000, 24)).is_some());
+    }
+
+    #[test]
+    fn recent_applies_the_rule_it_is_given() {
+        let mut corp = CorpState::default();
+        corp.paid = paid_from_journal(
+            &[donation("2026-10-09T13:00:00Z", 1, 60_000_000.0)],
+            NOW,
+            &rule(),
+        );
+        assert_eq!(corp.recent(NOW, &Rule::new(1, 70_000_000, 24)).len(), 0);
+        assert_eq!(corp.recent(NOW, &Rule::new(1, 60_000_000, 24)).len(), 1);
+        assert_eq!(corp.recent(NOW, &Rule::new(1, 60_000_000, 1)).len(), 0);
+    }
+
+    #[test]
+    fn rules_are_validated() {
+        assert!(validate_rule(1, 0, 1).is_ok());
+        assert!(validate_rule(MAX_DIVISION, i64::MAX, MAX_COVERAGE_HOURS).is_ok());
+        assert!(validate_rule(0, 50_000_000, 24).is_err());
+        assert!(validate_rule(MAX_DIVISION + 1, 50_000_000, 24).is_err());
+        assert!(validate_rule(1, -1, 24).is_err());
+        assert!(validate_rule(1, 50_000_000, 0).is_err());
+        assert!(validate_rule(1, 50_000_000, MAX_COVERAGE_HOURS + 1).is_err());
+    }
+
+    #[test]
+    fn the_loosest_rule_counts_everything_either_does() {
+        let a = Rule::new(2, 100_000_000, 48);
+        let b = Rule::new(2, 50_000_000, 24);
+        let loosest = a.loosest(b);
+        assert_eq!(loosest.division, 2);
+        assert_eq!(loosest.min_amount_isk(), 50_000_000);
+        assert_eq!(loosest.coverage_hours(), 48);
+        // And the other way round
+        assert_eq!(b.loosest(a), loosest);
+    }
+
     #[test]
     fn merge_keeps_the_latest_payment_per_character() {
         let journal = paid_from_journal(
@@ -1072,29 +1267,50 @@ mod tests {
     #[test]
     fn connection_change_clears_that_corp_only() {
         let mut state = SrpState::default();
-        state.corp_mut(CORP).apply(0, Ok(paid_one().into()), NOW);
-        state
-            .corp_mut(CORP + 1)
-            .apply(0, Ok(paid_one().into()), NOW);
+        assert_eq!(
+            state.apply(CORP, 1, 0, Ok(paid_one().into()), NOW),
+            Applied::Updated
+        );
+        assert_eq!(
+            state.apply(CORP + 1, 1, 0, Ok(paid_one().into()), NOW),
+            Applied::Updated
+        );
         state.connect_failed(NOW, "failed".to_string());
         state.wallet_removed(CORP);
-        assert!(!state.corp(CORP).unwrap().is_fresh(NOW));
-        assert!(state.corp(CORP).unwrap().paid.is_empty());
+        assert!(!state.corp(CORP, 1).unwrap().is_fresh(NOW));
+        assert!(state.corp(CORP, 1).unwrap().paid.is_empty());
         assert_eq!(state.generation(CORP), 1);
-        assert!(state.corp(CORP + 1).unwrap().is_fresh(NOW));
+        assert!(state.corp(CORP + 1, 1).unwrap().is_fresh(NOW));
         assert_eq!(state.generation(CORP + 1), 0);
     }
 
     #[test]
     fn a_reconnect_keeps_the_last_good_result() {
         let mut state = SrpState::default();
-        state.corp_mut(CORP).apply(0, Ok(paid_one().into()), NOW);
+        state.apply(CORP, 1, 0, Ok(paid_one().into()), NOW);
         state.connect_failed(NOW, "failed".to_string());
         state.wallet_replaced(CORP);
         assert!(state.recent_connect_error(NOW).is_none());
-        assert!(state.corp(CORP).unwrap().is_fresh(NOW));
-        assert_eq!(state.corp(CORP).unwrap().paid.len(), 1);
+        assert!(state.corp(CORP, 1).unwrap().is_fresh(NOW));
+        assert_eq!(state.corp(CORP, 1).unwrap().paid.len(), 1);
         assert_eq!(state.generation(CORP), 1);
+    }
+
+    #[test]
+    fn changing_a_wallet_keeps_its_divisions_apart() {
+        let mut state = SrpState::default();
+        state.apply(CORP, 1, 0, Ok(paid_one().into()), NOW);
+        // The same corp read at another division is untouched by a reconnect on the first
+        state.apply(CORP, 2, 0, Ok(paid_one().into()), NOW);
+        state.wallet_replaced(CORP);
+        assert!(state.corp(CORP, 1).unwrap().is_fresh(NOW));
+        assert_eq!(state.generation(CORP), 1);
+        // A result started before the bump is thrown away for every division
+        assert_eq!(
+            state.apply(CORP, 2, 0, Ok(paid_one().into()), NOW + 60),
+            Applied::Discarded
+        );
+        assert_eq!(state.corp(CORP, 2).unwrap().checked_at, Some(NOW));
     }
 
     #[test]
@@ -1114,16 +1330,16 @@ mod tests {
     #[test]
     fn a_failed_check_keeps_the_last_good_result() {
         let mut corp = CorpState::default();
-        assert_eq!(corp.apply(0, Ok(paid_one().into()), NOW), Applied::Updated);
+        assert_eq!(corp.apply(Ok(paid_one().into()), NOW), Applied::Updated);
         assert_eq!(
-            corp.apply(0, Err("ESI down".to_string()), NOW + 300),
+            corp.apply(Err("ESI down".to_string()), NOW + 300),
             Applied::Failed
         );
         assert_eq!(corp.paid.len(), 1);
         assert_eq!(corp.checked_at, Some(NOW));
         assert_eq!(corp.last_error.as_deref(), Some("ESI down"));
         assert_eq!(
-            corp.apply(0, Ok(paid_one().into()), NOW + 600),
+            corp.apply(Ok(paid_one().into()), NOW + 600),
             Applied::Recovered
         );
         assert!(corp.last_error.is_none());
@@ -1135,17 +1351,14 @@ mod tests {
         let started_with = state.generation(CORP);
         state.wallet_replaced(CORP);
         assert_eq!(
-            state
-                .corp_mut(CORP)
-                .apply(started_with, Ok(paid_one().into()), NOW),
+            state.apply(CORP, 1, started_with, Ok(paid_one().into()), NOW),
             Applied::Discarded
         );
-        assert!(state.corp(CORP).unwrap().paid.is_empty());
+        // Discarded before it could create the division's entry
+        assert!(state.corp(CORP, 1).is_none());
         let generation = state.generation(CORP);
         assert_eq!(
-            state
-                .corp_mut(CORP)
-                .apply(generation, Ok(paid_one().into()), NOW),
+            state.apply(CORP, 1, generation, Ok(paid_one().into()), NOW),
             Applied::Updated
         );
     }

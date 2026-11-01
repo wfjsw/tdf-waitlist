@@ -18,9 +18,7 @@ const NOW = Math.floor(Date.now() / 1000);
 
 function adminResponse(overrides = {}) {
   return {
-    min_amount: 50000000,
-    coverage_hours: 24,
-    division: 1,
+    defaults: { division: 1, min_amount: 50000000, coverage_hours: 24 },
     connect_error: null,
     wallets: [],
     waitlists: [],
@@ -35,20 +33,31 @@ function wallet(id, name, corp) {
     corporation_name: `Corp ${corp}`,
     connected_by: { id: 90, name: "Admin" },
     connected_at: NOW - 60,
-    checked_at: NOW - 10,
-    last_error: null,
-    recent: [],
+    checks: [
+      {
+        division: 1,
+        min_amount: 50000000,
+        coverage_hours: 24,
+        checked_at: NOW - 10,
+        last_error: null,
+        recent: [],
+      },
+    ],
   };
 }
 
-function waitlist(id, name, character, corporationId = null) {
+function waitlist(id, name, character, corporationId = null, rule = {}) {
   return {
     id,
     name,
     character,
     corporation_id: corporationId,
+    division: 1,
+    min_amount: 50000000,
+    coverage_hours: 24,
     set_by: { id: 90, name: "Admin" },
     set_at: NOW - 60,
+    ...rule,
   };
 }
 
@@ -446,6 +455,101 @@ test("per-waitlist disclosures have distinct accessible names", async () => {
     .getAllByText(/^Connect an account for /)
     .map((el) => computeAccessibleName(el));
   expect(new Set(names).size).toBe(names.length);
+});
+
+test("saving a rule sends it with the assignment unchanged", async () => {
+  mockApiCall.mockImplementation((path) => {
+    if (path === "/api/srp/admin")
+      return Promise.resolve(
+        adminResponse({
+          wallets: [wallet(1, "Alpha", 9)],
+          waitlists: [waitlist(10, "WL one", { id: 1, name: "Alpha" })],
+        })
+      );
+    return Promise.resolve("OK");
+  });
+  renderPage();
+  await screen.findByText("WL one");
+  fireEvent.change(screen.getByLabelText("Wallet division for WL one"), {
+    target: { value: "3" },
+  });
+  fireEvent.change(screen.getByLabelText(/Minimum amount in millions of ISK for WL one/), {
+    target: { value: "75" },
+  });
+  fireEvent.change(screen.getByLabelText("Coverage in hours for WL one"), {
+    target: { value: "48" },
+  });
+  fireEvent.click(screen.getByLabelText("Save rule for WL one"));
+  await waitFor(() =>
+    expect(mockApiCall).toHaveBeenCalledWith("/api/srp/admin/waitlist", {
+      json: {
+        waitlist_id: 10,
+        character_id: 1,
+        corporation_id: null,
+        rule: { division: 3, min_amount: 75000000, coverage_hours: 48 },
+      },
+    })
+  );
+});
+
+test("an out-of-range or unchanged rule can't be saved", async () => {
+  mockApiCall.mockResolvedValue(
+    adminResponse({ wallets: [], waitlists: [waitlist(10, "WL one", null)] })
+  );
+  renderPage();
+  await screen.findByText("WL one");
+  const save = screen.getByLabelText("Save rule for WL one");
+  expect(save.disabled).toBe(true);
+  const hours = screen.getByLabelText("Coverage in hours for WL one");
+  fireEvent.change(hours, { target: { value: "0" } });
+  expect(save.disabled).toBe(true);
+  fireEvent.change(hours, { target: { value: "5" } });
+  expect(save.disabled).toBe(false);
+  fireEvent.change(screen.getByLabelText("Wallet division for WL one"), {
+    target: { value: "8" },
+  });
+  expect(save.disabled).toBe(true);
+});
+
+test("a config-only save on a waitlist without SRP keeps it that way", async () => {
+  mockApiCall.mockImplementation((path) => {
+    if (path === "/api/srp/admin")
+      return Promise.resolve(
+        adminResponse({ wallets: [], waitlists: [waitlist(10, "WL one", null)] })
+      );
+    return Promise.resolve("OK");
+  });
+  renderPage();
+  await screen.findByText("WL one");
+  fireEvent.change(screen.getByLabelText(/Minimum amount in millions of ISK for WL one/), {
+    target: { value: "80" },
+  });
+  fireEvent.click(screen.getByLabelText("Save rule for WL one"));
+  await waitFor(() =>
+    expect(mockApiCall).toHaveBeenCalledWith("/api/srp/admin/waitlist", {
+      json: {
+        waitlist_id: 10,
+        character_id: null,
+        corporation_id: null,
+        rule: { division: 1, min_amount: 80000000, coverage_hours: 24 },
+      },
+    })
+  );
+});
+
+test("a wallet shows one status line per division a waitlist reads", async () => {
+  const both = wallet(1, "Alpha", 9);
+  both.checks = [
+    { ...both.checks[0], division: 1 },
+    { ...both.checks[0], division: 2, checked_at: null },
+  ];
+  mockApiCall.mockResolvedValue(adminResponse({ wallets: [both], waitlists: [] }));
+  renderPage();
+  await waitFor(() => expect(screen.getByText("Wallet division 1")).toBeInTheDocument());
+  expect(screen.getByText("Wallet division 2")).toBeInTheDocument();
+  // Just connected, so the missing check on division 2 reads as still being checked
+  expect(screen.getByText(/Checking the wallet now/)).toBeInTheDocument();
+  expect(screen.getAllByText(/Working · last check/)).toHaveLength(1);
 });
 
 test("disconnected character row selected index", async () => {

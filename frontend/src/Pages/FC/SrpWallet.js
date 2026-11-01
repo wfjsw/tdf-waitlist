@@ -131,6 +131,22 @@ const WaitlistRow = styled.div`
   > .note {
     flex: 1 1 100%;
   }
+  > .rule {
+    flex: 1 1 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4em 1em;
+    padding: 0.2em 0 0.5em;
+  }
+  > .rule label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+  }
+  > .rule input {
+    width: 5.5em;
+  }
 `;
 
 // Not InfoNote: its fixed "!" icon is wrong on the healthy state, and its white text fails contrast
@@ -165,10 +181,10 @@ async function disconnect(wallet) {
 
 // Just connected: no check or error reported yet, and the connection is new enough that the first
 // check is still expected
-function isChecking(wallet, now) {
+function isChecking(wallet, check, now) {
   return (
-    !wallet.checked_at &&
-    !wallet.last_error &&
+    !check.checked_at &&
+    !check.last_error &&
     now / 1000 - wallet.connected_at < CHECKING_WINDOW_SECONDS
   );
 }
@@ -219,7 +235,9 @@ function useSrpAdmin() {
     };
   }, [load]);
 
-  const checking = admin && admin.wallets.some((wallet) => isChecking(wallet, now));
+  const checking =
+    admin &&
+    admin.wallets.some((wallet) => wallet.checks.some((check) => isChecking(wallet, check, now)));
   const pollMs = checking ? CHECKING_POLL_MS : POLL_MS;
   React.useEffect(() => {
     const loadIfVisible = () => {
@@ -238,18 +256,18 @@ function useSrpAdmin() {
   return [admin, refresh, now, loadError];
 }
 
-// One line per wallet that says whether the check works. Every state carries a glyph or a word as
-// well as a colour.
-function StatusLine({ wallet, now }) {
-  const checkedAt = wallet.checked_at;
+// One line per wallet division that says whether the check works. Every state carries a glyph or
+// a word as well as a colour.
+function StatusLine({ wallet, check, now }) {
+  const checkedAt = check.checked_at;
   const age = checkedAt ? now / 1000 - checkedAt : null;
 
   let variant = "success";
   let text;
-  if (wallet.last_error) {
+  if (check.last_error) {
     variant = "danger";
-    text = `✕ Not working: ${wallet.last_error}`;
-  } else if (isChecking(wallet, now)) {
+    text = `✕ Not working: ${check.last_error}`;
+  } else if (isChecking(wallet, check, now)) {
     variant = "secondary";
     text = "◷ Checking the wallet now. The first check takes up to a minute.";
   } else if (age === null) {
@@ -289,14 +307,17 @@ function ConfigNotes({ admin }) {
   );
 }
 
-function RecentPayments({ admin, wallet }) {
-  const recent = wallet.recent;
+function RecentPayments({ check }) {
+  const recent = check.recent;
   return (
     <details>
       <Toggle>Recent payments ({recent.length})</Toggle>
       {recent.length === 0 ? (
         <p style={{ margin: "0.5em 0" }}>
-          <em>No payments in the last {formatSpan(admin.coverage_hours * 3600)}.</em>
+          <em>
+            No payments of {formatIsk(check.min_amount)}+ in the last{" "}
+            {formatSpan(check.coverage_hours * 3600)}.
+          </em>
         </p>
       ) : (
         <TableScroll>
@@ -357,7 +378,6 @@ function Wallet({ admin, wallet, now, onChange }) {
           {uses === 1 ? "waitlist" : "waitlists"}
         </Hint>
       </WalletHead>
-      <StatusLine wallet={wallet} now={now} />
       <Details>
         <dt>Corporation</dt>
         <dd>{wallet.corporation_name}</dd>
@@ -366,7 +386,17 @@ function Wallet({ admin, wallet, now, onChange }) {
           {wallet.connected_by.name} · {datetime(wallet.connected_at)}
         </dd>
       </Details>
-      <RecentPayments admin={admin} wallet={wallet} />
+      {wallet.checks.length === 0 ? (
+        <Hint>The wallet isn't used by a waitlist yet, so it isn't checked.</Hint>
+      ) : (
+        wallet.checks.map((check) => (
+          <section key={check.division}>
+            <h4 style={{ margin: "0.5em 0 0.3em" }}>Wallet division {check.division}</h4>
+            <StatusLine wallet={wallet} check={check} now={now} />
+            <RecentPayments check={check} />
+          </section>
+        ))
+      )}
       <Buttons style={{ marginTop: "0.5em" }}>
         <Button variant="danger" disabled={disconnecting} onClick={() => setDisconnectOpen(true)}>
           {disconnecting ? "Disconnecting…" : "Disconnect"}
@@ -461,10 +491,14 @@ function Wallets({ admin, now, onChange }) {
   );
 }
 
-async function setWaitlist(waitlistId, characterId, corporationId) {
-  await apiCall("/api/srp/admin/waitlist", {
-    json: { waitlist_id: waitlistId, character_id: characterId, corporation_id: corporationId },
-  });
+async function setWaitlist(waitlistId, characterId, corporationId, rule) {
+  const json = {
+    waitlist_id: waitlistId,
+    character_id: characterId,
+    corporation_id: corporationId,
+  };
+  if (rule) json.rule = rule;
+  await apiCall("/api/srp/admin/waitlist", { json });
 }
 
 // Connects one of the account's characters as the wallet of this waitlist: the server assigns it
@@ -517,6 +551,122 @@ function ConnectForWaitlist({ waitlist }) {
   );
 }
 
+// The rule the waitlist applies: wallet division, minimum amount (typed in millions of ISK) and
+// coverage hours. Its own button saves, so half-typed numbers aren't sent. The assignment goes
+// along unchanged, so a save here can't drop the wallet.
+function RuleForm({ waitlist, onChange }) {
+  const toastContext = React.useContext(ToastContext);
+  const [division, setDivision] = React.useState(String(waitlist.division));
+  const [millions, setMillions] = React.useState(String(waitlist.min_amount / 1_000_000));
+  const [hours, setHours] = React.useState(String(waitlist.coverage_hours));
+  const [saving, setSaving] = React.useState(false);
+
+  // The server's values win after a save or a refresh from elsewhere. Compared rather than reset
+  // on every effect run, so a late first flush can't overwrite what the admin already typed.
+  const saved = React.useRef(
+    `${waitlist.division}/${waitlist.min_amount}/${waitlist.coverage_hours}`
+  );
+  React.useEffect(() => {
+    const current = `${waitlist.division}/${waitlist.min_amount}/${waitlist.coverage_hours}`;
+    if (current !== saved.current) {
+      saved.current = current;
+      setDivision(String(waitlist.division));
+      setMillions(String(waitlist.min_amount / 1_000_000));
+      setHours(String(waitlist.coverage_hours));
+    }
+  }, [waitlist.division, waitlist.min_amount, waitlist.coverage_hours]);
+
+  const values = {
+    division: Number(division),
+    min_amount: Math.round(Number(millions) * 1_000_000),
+    coverage_hours: Number(hours),
+  };
+  const valid =
+    Number.isInteger(values.division) &&
+    values.division >= 1 &&
+    values.division <= 7 &&
+    Number.isFinite(values.min_amount) &&
+    values.min_amount >= 0 &&
+    Number.isInteger(values.coverage_hours) &&
+    values.coverage_hours >= 1 &&
+    values.coverage_hours <= 720;
+  const unchanged =
+    values.division === waitlist.division &&
+    values.min_amount === waitlist.min_amount &&
+    values.coverage_hours === waitlist.coverage_hours;
+
+  const save = () => {
+    setSaving(true);
+    const request = setWaitlist(
+      waitlist.id,
+      waitlist.character ? waitlist.character.id : null,
+      waitlist.corporation_id,
+      values
+    ).then(() =>
+      addToast(toastContext, {
+        message: `${waitlist.name} now counts ${formatIsk(values.min_amount)}+ in division ${
+          values.division
+        }, covering ${formatSpan(values.coverage_hours * 3600)}`,
+        variant: "success",
+      })
+    );
+    errorToaster(toastContext, request)
+      .then(onChange)
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <div className="rule">
+      <label>
+        Division{" "}
+        <input
+          type="number"
+          min="1"
+          max="7"
+          step="1"
+          value={division}
+          disabled={saving}
+          aria-label={`Wallet division for ${waitlist.name}`}
+          onChange={(evt) => setDivision(evt.target.value)}
+        />
+      </label>
+      <label>
+        Min (M ISK){" "}
+        <input
+          type="number"
+          min="0"
+          step="0.1"
+          value={millions}
+          disabled={saving}
+          aria-label={`Minimum amount in millions of ISK for ${waitlist.name}`}
+          onChange={(evt) => setMillions(evt.target.value)}
+        />
+      </label>
+      <label>
+        Cover (h){" "}
+        <input
+          type="number"
+          min="1"
+          max="720"
+          step="1"
+          value={hours}
+          disabled={saving}
+          aria-label={`Coverage in hours for ${waitlist.name}`}
+          onChange={(evt) => setHours(evt.target.value)}
+        />
+      </label>
+      <Button
+        variant="primary"
+        disabled={saving || !valid || unchanged}
+        aria-label={`Save rule for ${waitlist.name}`}
+        onClick={save}
+      >
+        {saving ? "Saving…" : "Save rule"}
+      </Button>
+    </div>
+  );
+}
+
 // Picking a wallet saves straight away. Each select is disabled while its own request runs, and the
 // value always comes from the server's answer, so a failed save leaves it as it was.
 function WaitlistPicker({ admin, onChange }) {
@@ -565,7 +715,7 @@ function WaitlistPicker({ admin, onChange }) {
       <Hint>
         {wallets.length === 0
           ? "Connect an account above or from the waitlist's own form, then pick which account pays for it."
-          : "Pick which wallet account pays SRP for each waitlist. To add an account, use the form above or the waitlist's own. Pilots are covered by payments to that account's corp only. Changes save straight away; pilots see them next time they open the waitlist."}
+          : "Pick which wallet account pays SRP for each waitlist. To add an account, use the form above or the waitlist's own. Pilots are covered by payments to that account's corp only. Each waitlist also has its own rule: division, minimum amount and cover. Wallet changes save straight away; pilots see them next time they open the waitlist."}
       </Hint>
       {waitlists.length === 0 ? (
         <p style={{ margin: "0.8em 0" }}>
@@ -645,6 +795,7 @@ function WaitlistPicker({ admin, onChange }) {
                   </div>
                 )}
                 <ConnectForWaitlist waitlist={waitlist} />
+                <RuleForm waitlist={waitlist} onChange={onChange} />
               </WaitlistRow>
             );
           })}
@@ -654,13 +805,14 @@ function WaitlistPicker({ admin, onChange }) {
   );
 }
 
-// The rule the check applies, plus the time zone of every time on this page
+// The rule a new waitlist starts with, plus the time zone of every time on this page
 function Footnote({ admin }) {
   return (
     <Muted style={{ marginTop: "1.5em", fontSize: "0.9em" }}>
-      Counting payments of {formatIsk(admin.min_amount)}+ to the SRP corp, covering the paying
-      character for {formatSpan(admin.coverage_hours * 3600)} (wallet division {admin.division}).
-      Times are EVE time (UTC).
+      New waitlists start at {formatIsk(admin.defaults.min_amount)}+ from wallet division{" "}
+      {admin.defaults.division}, covering the paying character for{" "}
+      {formatSpan(admin.defaults.coverage_hours * 3600)}; each waitlist's rule can be changed in its
+      row. Times are EVE time (UTC).
     </Muted>
   );
 }
