@@ -152,21 +152,21 @@ const WARN = "⚠︎";
 
 const datetime = (unixSeconds) => formatDatetime(new Date(unixSeconds * 1000));
 
-async function startConnect(characterId) {
-  const url = await apiCall(`/api/srp/admin/connect?character_id=${characterId}`, {});
+async function startConnect(characterId, waitlistId) {
+  const waitlist = waitlistId ? `&waitlist_id=${waitlistId}` : "";
+  const url = await apiCall(`/api/srp/admin/connect?character_id=${characterId}${waitlist}`, {});
   window.location.href = url;
 }
 
 async function disconnect(wallet) {
-  await apiCall("/api/srp/admin/disconnect", { json: { corporation_id: wallet.corporation_id } });
-  return `${wallet.corporation_name} wallet disconnected`;
+  await apiCall("/api/srp/admin/disconnect", { json: { character_id: wallet.character.id } });
+  return `${wallet.character.name || wallet.character.id} wallet disconnected`;
 }
 
 // Just connected: no check or error reported yet, and the connection is new enough that the first
 // check is still expected
-function isChecking(admin, wallet, now) {
+function isChecking(wallet, now) {
   return (
-    admin.enabled &&
     !wallet.checked_at &&
     !wallet.last_error &&
     now / 1000 - wallet.connected_at < CHECKING_WINDOW_SECONDS
@@ -181,6 +181,7 @@ function isChecking(admin, wallet, now) {
 function useSrpAdmin() {
   const toastContext = React.useContext(ToastContext);
   const [admin, setAdmin] = React.useState(null);
+  const [loadError, setLoadError] = React.useState(null);
   const [now, setNow] = React.useState(() => Date.now());
   const mounted = React.useRef(false);
   const latest = React.useRef(0);
@@ -190,10 +191,16 @@ function useSrpAdmin() {
       const id = ++latest.current;
       const request = apiCall("/api/srp/admin", {}).then(
         (data) => {
-          if (mounted.current && id === latest.current) setAdmin(data);
+          if (mounted.current && id === latest.current) {
+            setAdmin(data);
+            setLoadError(null);
+          }
         },
         (err) => {
-          if (mounted.current && id === latest.current) throw err;
+          if (mounted.current && id === latest.current) {
+            setLoadError(String(err));
+            throw err;
+          }
         }
       );
       const done = quiet ? request.catch(() => {}) : errorToaster(toastContext, request);
@@ -212,7 +219,7 @@ function useSrpAdmin() {
     };
   }, [load]);
 
-  const checking = admin && admin.wallets.some((wallet) => isChecking(admin, wallet, now));
+  const checking = admin && admin.wallets.some((wallet) => isChecking(wallet, now));
   const pollMs = checking ? CHECKING_POLL_MS : POLL_MS;
   React.useEffect(() => {
     const loadIfVisible = () => {
@@ -228,24 +235,21 @@ function useSrpAdmin() {
   }, [load, pollMs]);
 
   const refresh = React.useCallback(() => load(false), [load]);
-  return [admin, refresh, now];
+  return [admin, refresh, now, loadError];
 }
 
 // One line per wallet that says whether the check works. Every state carries a glyph or a word as
 // well as a colour.
-function StatusLine({ admin, wallet, now }) {
+function StatusLine({ wallet, now }) {
   const checkedAt = wallet.checked_at;
   const age = checkedAt ? now / 1000 - checkedAt : null;
 
   let variant = "success";
   let text;
-  if (!admin.enabled) {
-    variant = "warning";
-    text = `${WARN} The SRP check is switched off in the server config.`;
-  } else if (wallet.last_error) {
+  if (wallet.last_error) {
     variant = "danger";
     text = `✕ Not working: ${wallet.last_error}`;
-  } else if (isChecking(admin, wallet, now)) {
+  } else if (isChecking(wallet, now)) {
     variant = "secondary";
     text = "◷ Checking the wallet now. The first check takes up to a minute.";
   } else if (age === null) {
@@ -265,29 +269,19 @@ function StatusLine({ admin, wallet, now }) {
   return <Status variant={variant}>{text}</Status>;
 }
 
-// Warnings about SRP not being shown anywhere and the [srp] managers setting in the server config
+// Warning about SRP not being shown anywhere
 function ConfigNotes({ admin }) {
-  const unknownManagers = admin.unknown_managers;
   // With no wallets or no active waitlists at all, the steps below say so themselves
   const none =
     admin.wallets.length > 0 &&
     admin.waitlists.length > 0 &&
-    !admin.waitlists.some((w) => w.corporation_id !== null);
+    !admin.waitlists.some((w) => w.character !== null || w.corporation_id !== null);
   return (
     <>
       {none && (
         <InfoNote variant="warning">
           <span>
-            {WARN} SRP isn't shown on any waitlist yet. Pick an SRP corp for the waitlists below.
-          </span>
-        </InfoNote>
-      )}
-      {unknownManagers.length > 0 && (
-        <InfoNote variant="warning">
-          <span>
-            {WARN} No character named {unknownManagers.map((name) => `"${name}"`).join(", ")} has
-            logged in to the waitlist. Check [srp] managers in the server config, or ask them to log
-            in.
+            {WARN} SRP isn't shown on any waitlist yet. Pick a wallet for the waitlists below.
           </span>
         </InfoNote>
       )}
@@ -338,7 +332,11 @@ function Wallet({ admin, wallet, now, onChange }) {
   const toastContext = React.useContext(ToastContext);
   const [disconnectOpen, setDisconnectOpen] = React.useState(false);
   const [disconnecting, setDisconnecting] = React.useState(false);
-  const uses = admin.waitlists.filter((w) => w.corporation_id === wallet.corporation_id).length;
+  const uses = admin.waitlists.filter((w) => {
+    // An assigned account is the source; only a corp-only row is fed by any account of its corp
+    if (w.character) return w.character.id === wallet.character.id;
+    return w.corporation_id !== null && w.corporation_id === wallet.corporation_id;
+  }).length;
 
   const confirmDisconnect = () => {
     if (disconnecting) return;
@@ -353,15 +351,16 @@ function Wallet({ admin, wallet, now, onChange }) {
   return (
     <WalletBlock>
       <WalletHead>
-        <strong>{wallet.corporation_name}</strong>
+        <strong>{wallet.character.name || wallet.character.id}</strong>
         <Hint>
-          used by {uses} {uses === 1 ? "waitlist" : "waitlists"}
+          wallet of {wallet.corporation_name} · used by {uses}{" "}
+          {uses === 1 ? "waitlist" : "waitlists"}
         </Hint>
       </WalletHead>
-      <StatusLine admin={admin} wallet={wallet} now={now} />
+      <StatusLine wallet={wallet} now={now} />
       <Details>
-        <dt>Wallet character</dt>
-        <dd>{wallet.character.name}</dd>
+        <dt>Corporation</dt>
+        <dd>{wallet.corporation_name}</dd>
         <dt>Connected by</dt>
         <dd>
           {wallet.connected_by.name} · {datetime(wallet.connected_at)}
@@ -376,19 +375,19 @@ function Wallet({ admin, wallet, now, onChange }) {
       <Confirm
         open={disconnectOpen}
         setOpen={setDisconnectOpen}
-        title={`Disconnect the ${wallet.corporation_name} wallet`}
+        title={`Disconnect the ${wallet.character.name || wallet.character.id} wallet`}
         onConfirm={confirmDisconnect}
       >
         <p style={{ margin: "0.5em 0 1em" }}>
-          Disconnect the {wallet.corporation_name} wallet? Waitlists using it stop showing SRP until
-          it's reconnected.
+          Disconnect the {wallet.character.name || wallet.character.id} wallet? Waitlists that have
+          no other account connected for their corp stop showing SRP until it's reconnected.
         </p>
       </Confirm>
     </WalletBlock>
   );
 }
 
-function ConnectWallet({ admin }) {
+function ConnectWallet() {
   const authContext = React.useContext(AuthContext);
   const [picked, setPicked] = React.useState(null);
   const [startError, setStartError] = React.useState(null);
@@ -425,10 +424,9 @@ function ConnectWallet({ admin }) {
             </option>
           ))}
         </Select>
-        <Button variant="primary" disabled={connecting || !admin.enabled} onClick={connect}>
+        <Button variant="primary" disabled={connecting} onClick={connect}>
           {connecting ? "Connecting…" : "Connect"}
         </Button>
-        {!admin.enabled && <Hint>Switch the SRP check on in the server config to connect.</Hint>}
       </Buttons>
       {startError && <InfoNote variant="danger">{startError}</InfoNote>}
     </>
@@ -442,15 +440,15 @@ function Wallets({ admin, now, onChange }) {
         <StepNumber aria-hidden="true">1</StepNumber>SRP wallets
       </StepHeading>
       <Hint>
-        One per SRP corp. Connecting a character adds its corp's wallet, or replaces it if that corp
-        is already connected.
+        Connect a character in an SRP corp. Each waitlist then picks which account pays for its
+        pilots, so two waitlists can each have their own account.
       </Hint>
       {admin.wallets.length === 0 ? (
         <Muted style={{ margin: "0.8em 0" }}>No SRP wallet connected yet.</Muted>
       ) : (
         admin.wallets.map((wallet) => (
           <Wallet
-            key={wallet.corporation_id}
+            key={wallet.character.id}
             admin={admin}
             wallet={wallet}
             now={now}
@@ -458,18 +456,68 @@ function Wallets({ admin, now, onChange }) {
           />
         ))
       )}
-      <ConnectWallet admin={admin} />
+      <ConnectWallet />
     </Step>
   );
 }
 
-async function setWaitlist(waitlistId, corporationId) {
+async function setWaitlist(waitlistId, characterId, corporationId) {
   await apiCall("/api/srp/admin/waitlist", {
-    json: { waitlist_id: waitlistId, corporation_id: corporationId },
+    json: { waitlist_id: waitlistId, character_id: characterId, corporation_id: corporationId },
   });
 }
 
-// Picking a corp saves straight away. Each select is disabled while its own request runs, and the
+// Connects one of the account's characters as the wallet of this waitlist: the server assigns it
+// when the login comes back
+function ConnectForWaitlist({ waitlist }) {
+  const authContext = React.useContext(AuthContext);
+  const [picked, setPicked] = React.useState(null);
+  const [startError, setStartError] = React.useState(null);
+  const [connecting, setConnecting] = React.useState(false);
+
+  const characters = authContext.characters;
+  const selected = picked === null ? authContext.current.id : picked;
+
+  const connect = () => {
+    setStartError(null);
+    setConnecting(true);
+    startConnect(selected, waitlist.id).catch((err) => {
+      setStartError(err.toString());
+      setConnecting(false);
+    });
+  };
+
+  return (
+    <details className="note">
+      <Toggle>Connect an account for {waitlist.name}</Toggle>
+      <Buttons style={{ marginTop: "0.4em" }}>
+        <Select
+          aria-label={`Wallet character for ${waitlist.name}`}
+          value={selected}
+          disabled={connecting}
+          onChange={(evt) => setPicked(parseInt(evt.target.value, 10))}
+        >
+          {characters.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+        <Button
+          variant="primary"
+          disabled={connecting}
+          aria-label={`Connect for ${waitlist.name}`}
+          onClick={connect}
+        >
+          {connecting ? "Connecting…" : "Connect"}
+        </Button>
+      </Buttons>
+      {startError && <InfoNote variant="danger">{startError}</InfoNote>}
+    </details>
+  );
+}
+
+// Picking a wallet saves straight away. Each select is disabled while its own request runs, and the
 // value always comes from the server's answer, so a failed save leaves it as it was.
 function WaitlistPicker({ admin, onChange }) {
   const toastContext = React.useContext(ToastContext);
@@ -477,13 +525,29 @@ function WaitlistPicker({ admin, onChange }) {
   const { waitlists, wallets } = admin;
 
   const pick = (waitlist, value) => {
-    const corporationId = value === "" ? null : parseInt(value, 10);
-    const wallet = wallets.find((w) => w.corporation_id === corporationId);
+    // A corp fallback has no account to pick: "corp:<id>"
+    const pendingCorp = value.startsWith("corp:");
+    const characterId = value === "" || pendingCorp ? null : parseInt(value, 10);
+    const wallet = wallets.find((w) => w.character.id === characterId);
+    const kept = characterId !== null ? waitlist.character : null;
+    const corporationId = pendingCorp
+      ? parseInt(value.slice(5), 10)
+      : wallet
+      ? wallet.corporation_id
+      : kept
+      ? waitlist.corporation_id
+      : null;
     setPending((ids) => [...ids, waitlist.id]);
-    const request = setWaitlist(waitlist.id, corporationId).then(() =>
+    const request = setWaitlist(waitlist.id, characterId, corporationId).then(() =>
       addToast(toastContext, {
         message: wallet
-          ? `${waitlist.name} now uses ${wallet.corporation_name}`
+          ? `${waitlist.name} now uses ${wallet.character.name || wallet.character.id} (${
+              wallet.corporation_name
+            })`
+          : kept
+          ? `${waitlist.name} keeps ${kept.name || kept.id}`
+          : pendingCorp
+          ? `${waitlist.name} waits for a wallet of corp ${corporationId}`
           : `SRP removed from ${waitlist.name}`,
         variant: "success",
       })
@@ -500,8 +564,8 @@ function WaitlistPicker({ admin, onChange }) {
       </StepHeading>
       <Hint>
         {wallets.length === 0
-          ? "Connect a wallet above first, then pick which SRP corp each waitlist uses."
-          : "Pick which SRP corp each waitlist uses. Pilots are covered by payments to that corp only. Changes save straight away; pilots see them next time they open the waitlist."}
+          ? "Connect an account above or from the waitlist's own form, then pick which account pays for it."
+          : "Pick which wallet account pays SRP for each waitlist. To add an account, use the form above or the waitlist's own. Pilots are covered by payments to that account's corp only. Changes save straight away; pilots see them next time they open the waitlist."}
       </Hint>
       {waitlists.length === 0 ? (
         <p style={{ margin: "0.8em 0" }}>
@@ -509,14 +573,36 @@ function WaitlistPicker({ admin, onChange }) {
         </p>
       ) : (
         <Fieldset style={{ marginTop: "0.5em" }}>
-          <HiddenLegend>SRP corp for each waitlist</HiddenLegend>
+          <HiddenLegend>SRP wallet for each waitlist</HiddenLegend>
           {waitlists.map((waitlist) => {
-            const corpId = waitlist.corporation_id;
-            const wallet = wallets.find((w) => w.corporation_id === corpId);
-            // Its wallet was disconnected after the waitlist picked it
-            const orphaned = corpId !== null && !wallet;
+            const characterId = waitlist.character ? waitlist.character.id : null;
+            const pendingCorp = waitlist.corporation_id;
+            // A migrated waitlist kept only a corp: any connected account of that corp is what
+            // feeds it, so show that
+            const wallet = wallets.find((w) =>
+              characterId !== null
+                ? w.character.id === characterId
+                : pendingCorp !== null && w.corporation_id === pendingCorp
+            );
+            // Its wallet was disconnected after the waitlist picked it, or the migration kept a
+            // corp it used with no account left
+            const orphaned = (characterId !== null || pendingCorp !== null) && !wallet;
+            // Re-selecting a still-listed orphan keeps it: a character by id, a pending corp
+            // with the "corp:" prefix (the id alone would be a character)
+            const orphanValue = characterId !== null ? String(characterId) : `corp:${pendingCorp}`;
+            const effectiveId = characterId !== null ? characterId : wallet?.character.id;
+            const value =
+              effectiveId !== undefined && effectiveId !== null
+                ? String(effectiveId)
+                : orphaned
+                ? orphanValue
+                : "";
+            const orphanName = waitlist.character
+              ? waitlist.character.name || characterId
+              : `Corp ${pendingCorp}`;
             const byId = `srp-wl-${waitlist.id}-by`;
-            const showBy = wallet && waitlist.set_by && waitlist.set_at;
+            const showBy =
+              (waitlist.character || waitlist.corporation_id) && waitlist.set_by && waitlist.set_at;
             return (
               <WaitlistRow key={waitlist.id}>
                 <label className="name" htmlFor={`srp-wl-${waitlist.id}`}>
@@ -525,18 +611,25 @@ function WaitlistPicker({ admin, onChange }) {
                 <div className="pick">
                   <Select
                     id={`srp-wl-${waitlist.id}`}
-                    value={corpId === null ? "" : String(corpId)}
+                    value={value}
                     disabled={pending.includes(waitlist.id)}
                     aria-describedby={showBy ? byId : undefined}
                     onChange={(evt) => pick(waitlist, evt.target.value)}
                   >
                     <option value="">No SRP</option>
                     {wallets.map((w) => (
-                      <option key={w.corporation_id} value={String(w.corporation_id)}>
-                        {w.corporation_name}
+                      <option key={w.character.id} value={String(w.character.id)}>
+                        {w.character.name || w.character.id} ({w.corporation_name})
                       </option>
                     ))}
-                    {orphaned && <option value={String(corpId)}>&lt;disconnected corp&gt;</option>}
+                    {orphaned && (
+                      <option value={orphanValue}>{orphanName} (wallet disconnected)</option>
+                    )}
+                    {pendingCorp !== null && (characterId !== null || !orphaned) && (
+                      <option value={`corp:${pendingCorp}`}>
+                        Any wallet of corp {pendingCorp}
+                      </option>
+                    )}
                   </Select>
                 </div>
                 {showBy && (
@@ -551,6 +644,7 @@ function WaitlistPicker({ admin, onChange }) {
                     </Status>
                   </div>
                 )}
+                <ConnectForWaitlist waitlist={waitlist} />
               </WaitlistRow>
             );
           })}
@@ -572,14 +666,22 @@ function Footnote({ admin }) {
 }
 
 export function SrpWallet() {
-  const [admin, refresh, now] = useSrpAdmin();
+  const [admin, refresh, now, loadError] = useSrpAdmin();
 
   return (
     <>
       <PageTitle>SRP wallet</PageTitle>
       <Content style={{ maxWidth: "900px" }}>
         {!admin ? (
-          <em>Loading SRP wallet...</em>
+          <>
+            <em>Loading SRP wallet...</em>
+            {loadError && (
+              <InfoNote variant="danger">
+                Couldn't load the SRP wallet page: {loadError}. If SRP was just added, apply its
+                database migration first.
+              </InfoNote>
+            )}
+          </>
         ) : (
           <>
             {admin.connect_error && <InfoNote variant="danger">{admin.connect_error}</InfoNote>}

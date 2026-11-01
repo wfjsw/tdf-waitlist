@@ -1,11 +1,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::config::{Config, SrpConfig};
+use crate::config::Config;
 use crate::core::esi::{ESIClient, ESIError};
-use crate::core::srp::{
-    self, connection, database_error, Applied, Rule, SharedSrpState, WalletRead,
-};
+use crate::core::srp::{self, connection, database_error, Applied, SharedSrpState, WalletRead};
 
 /// The journal is cached by ESI for an hour and contracts for five minutes, so checking more often
 /// than this gains nothing
@@ -15,14 +13,14 @@ const MAX_PAGES: i32 = 10;
 /// For each SeAT or ESI step of a check; see `within`
 const TIMEOUT: Duration = Duration::from_secs(120);
 
-/// Checks every connected SRP wallet every INTERVAL, or straight away when asked
-/// (`Shared::check_now`, after a connect). Checks run one at a time, in this one task: SeAT may
-/// rotate the refresh token on every use, so two at once would leave one holding a revoked token.
-/// For the same reason only one backend process may run it.
+/// Checks every connected SRP corp every INTERVAL, or straight away when asked
+/// (`Shared::check_now`, after a connect). A corp with several connected accounts is read through
+/// the first one that works. Checks run one at a time, in this one task: SeAT may rotate the
+/// refresh token on every use, so two at once would leave one holding a revoked token. For the
+/// same reason only one backend process may run it.
 pub struct SrpUpdater {
     esi_client: ESIClient,
     db: Arc<crate::DB>,
-    config: Config,
     state: SharedSrpState,
 }
 
@@ -35,7 +33,6 @@ impl SrpUpdater {
                 config.esi.client_secret.clone(),
             ),
             db,
-            config,
             state,
         }
     }
@@ -72,19 +69,59 @@ impl SrpUpdater {
     }
 
     /// Reads one corp's wallet and records the result
-    async fn check(&self, corporation_id: i64) {
+    async fn check(self: Arc<Self>, corporation_id: i64) {
         // The generation before the wallet: a wallet replaced or removed after this read bumps
         // it, so the result is thrown away rather than published for a wallet that's gone
         let generation = self.state.read().generation(corporation_id);
-        let wallet = match connection::get(&self.db, corporation_id).await {
-            Ok(Some(wallet)) => wallet,
-            Ok(None) => return,
+        let wallets = match connection::for_corporation(&self.db, corporation_id).await {
+            Ok(wallets) => wallets,
             Err(e) => {
                 database_error(e);
                 return;
             }
         };
-        let result = fetch(&self.esi_client, &self.db, &self.config.srp, &wallet).await;
+
+        // Another account of this corp can read the same wallet if one token has gone bad, so
+        // try them in order (newest connection first) instead of letting one bad account stop
+        // the corp
+        let mut read = None;
+        let mut last_error = None;
+        for wallet in wallets {
+            // In its own task: the SeAT token parsing unwraps, and one panic must not stop the
+            // other accounts, nor leave a rotated token unrecorded for them
+            let updater = self.clone();
+            let character_id = wallet.character_id;
+            let outcome =
+                tokio::spawn(async move { fetch(&updater.esi_client, &updater.db, &wallet).await })
+                    .await;
+            match outcome {
+                Ok(Ok(result)) => {
+                    read = Some(result);
+                    break;
+                }
+                Ok(Err(message)) => {
+                    info!(
+                        "SRP check of corp {} through character {} failed: {}",
+                        corporation_id, character_id, message
+                    );
+                    last_error = Some(message);
+                }
+                Err(e) => {
+                    error!(
+                        "SRP check of corp {} through character {} crashed: {}",
+                        corporation_id, character_id, e
+                    );
+                    last_error = Some(
+                        "The SRP check crashed; the server log has the details. It tries again \
+                        in a few minutes."
+                            .to_string(),
+                    );
+                }
+            }
+        }
+        let Some(result) = read.map(Ok).or(last_error.map(Err)) else {
+            return;
+        };
         let now = chrono::Utc::now().timestamp();
 
         let message = result.as_ref().err().cloned();
@@ -164,7 +201,6 @@ async fn fetch_pages<T: serde::de::DeserializeOwned>(
 async fn fetch(
     esi: &ESIClient,
     db: &crate::DB,
-    config: &SrpConfig,
     conn: &connection::Connection,
 ) -> Result<WalletRead, String> {
     // Not inside `within`: SeAT may rotate the refresh token in this response, and cancelling the
@@ -177,7 +213,7 @@ async fn fetch(
     if let Some(new_refresh_token) = new_refresh_token {
         store_refresh_token(db, conn, &new_refresh_token).await?;
     }
-    within(read_wallet(esi, config, conn, &seat_token)).await
+    within(read_wallet(esi, conn, &seat_token)).await
 }
 
 /// Runs `step` with TIMEOUT: the HTTP client has none of its own, and a check that never finishes
@@ -205,7 +241,7 @@ async fn store_refresh_token(
     new: &str,
 ) -> Result<(), String> {
     let store =
-        || connection::update_refresh_token(db, conn.corporation_id, &conn.refresh_token, new);
+        || connection::update_refresh_token(db, conn.character_id, &conn.refresh_token, new);
     if store().await.is_ok() {
         return Ok(());
     }
@@ -214,7 +250,6 @@ async fn store_refresh_token(
 
 async fn read_wallet(
     esi: &ESIClient,
-    config: &SrpConfig,
     conn: &connection::Connection,
     seat_token: &str,
 ) -> Result<WalletRead, String> {
@@ -223,14 +258,15 @@ async fn read_wallet(
         .await
         .map_err(describe_token_error)?;
 
-    let rule = Rule::from_config(config);
+    let rule = srp::RULE;
     let now = chrono::Utc::now().timestamp();
 
     let (journal, journal_as_of) = fetch_pages(
         esi,
         &format!(
             "/corporations/{}/wallets/{}/journal",
-            conn.corporation_id, config.division
+            conn.corporation_id,
+            srp::DIVISION
         ),
         &token,
         "wallet journal",

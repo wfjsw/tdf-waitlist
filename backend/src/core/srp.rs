@@ -9,7 +9,6 @@ use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::SrpConfig;
 use crate::core::auth::AuthenticatedAccount;
 use crate::core::esi::{ESIScope, SEAT_LOGIN_SCOPES};
 
@@ -35,7 +34,7 @@ const STALE_AFTER_SECS: i64 = 2 * 3600;
 /// How long the admin page shows why a connect failed
 const CONNECT_ERROR_SHOWN_SECS: i64 = 15 * 60;
 
-const CONNECT_STATE_PREFIX: &[u8] = b"srpconnect:";
+pub const CONNECT_STATE_PREFIX: &[u8] = b"srpconnect:";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -51,20 +50,26 @@ pub struct Payment {
     pub via: Via,
 }
 
+/// Wallet division that receives SRP payments (1 is the master wallet)
+pub const DIVISION: i32 = 1;
+/// ISK; this much or more counts
+pub const MIN_AMOUNT: i64 = 50_000_000;
+/// How long a payment covers the character who made it
+pub const COVERAGE_HOURS: i64 = 24;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Rule {
     pub min_amount: f64,
     pub coverage_secs: i64,
 }
 
-impl Rule {
-    pub fn from_config(config: &SrpConfig) -> Rule {
-        Rule {
-            min_amount: config.min_amount as f64,
-            coverage_secs: config.coverage_hours * 3600,
-        }
-    }
+/// The rule every check applies
+pub const RULE: Rule = Rule {
+    min_amount: MIN_AMOUNT as f64,
+    coverage_secs: COVERAGE_HOURS * 3600,
+};
 
+impl Rule {
     pub fn expires_at(&self, paid_at: i64) -> i64 {
         paid_at + self.coverage_secs
     }
@@ -410,94 +415,81 @@ pub fn database_error(error: sqlx::Error) -> String {
     "Database error; the server log has the details.".to_string()
 }
 
-/// Names come from config, so differences in case and surrounding spaces don't matter.
-/// `to_lowercase`, like the database's `lower()`, so non-English names compare the same way.
-pub fn same_name(a: &str, b: &str) -> bool {
-    a.trim().to_lowercase() == b.trim().to_lowercase()
+/// Whether the account may run the SRP wallet page. The `srp-manage` key comes with the fc role
+/// and everything above it.
+pub fn is_manager(account: &AuthenticatedAccount) -> bool {
+    account.access.contains("srp-manage")
 }
 
-/// A `[srp] managers` entry is a character id or a name
-fn names_character(entry: &str, id: i64, name: &str) -> bool {
-    match entry.trim().parse::<i64>() {
-        Ok(entry_id) => entry_id == id,
-        Err(_) => same_name(entry, name),
-    }
+/// How old a connect login may be when it comes back. The OAuth round trip takes seconds; this
+/// keeps a leaked or replayed URL short-lived.
+pub const CONNECT_STATE_MAX_AGE_SECS: u32 = 10 * 60;
+/// A minute of slack for clocks that are slightly apart
+const CONNECT_STATE_FUTURE_SLACK_SECS: i64 = 60;
+
+/// What a connect login carries. It is only ever seen inside the Branca-encrypted OAuth state
+/// (`routes::auth::authorize_url`), so the ids don't appear in the URL, and it is bound to the
+/// account that started it.
+#[derive(Debug, PartialEq)]
+pub struct ConnectState {
+    /// 0 for a login started before the state carried it; such a login isn't account-bound
+    pub account_id: i64,
+    pub character_id: i64,
+    pub waitlist_id: Option<i64>,
+    /// None for a login started before the state carried it
+    pub issued_at: Option<i64>,
 }
 
-/// Whether the account may run the SRP wallet page: council and admin always, anyone else when
-/// one of their characters is in `[srp] managers`
-pub async fn is_manager(
-    db: &crate::DB,
-    config: &SrpConfig,
-    account: &AuthenticatedAccount,
-) -> Result<bool, sqlx::Error> {
-    let has_key = account.access.contains("srp-manage");
-    // Nothing to look up: the answer can't depend on the account's characters
-    if has_key || config.managers.is_empty() {
-        return Ok(has_key);
-    }
-    let characters: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, name FROM \"character\" WHERE id = $1
-        UNION ALL
-        SELECT c.id, c.name FROM alt_character a JOIN \"character\" c ON c.id = a.alt_id
-            WHERE a.account_id = $1",
+/// OAuth state marking a login as "connect this character as the SRP wallet for this account",
+/// optionally for one waitlist
+pub fn connect_state(account_id: i64, character_id: i64, waitlist_id: Option<i64>) -> Vec<u8> {
+    let waitlist = waitlist_id.unwrap_or(0);
+    let issued_at = chrono::Utc::now().timestamp();
+    format!(
+        "srpconnect:{}:{}:{}:{}",
+        account_id, character_id, waitlist, issued_at
     )
-    .bind(account.id)
-    .fetch_all(db)
-    .await?;
-    let characters: Vec<(i64, &str)> = characters.iter().map(|(id, n)| (*id, n.as_str())).collect();
-    Ok(named_manager(&config.managers, &characters))
+    .into_bytes()
 }
 
-/// Whether `[srp] managers` names any of `characters` (the account's main and alts, as id and
-/// name). Council and admin are managers whatever this says.
-pub fn named_manager(managers: &[String], characters: &[(i64, &str)]) -> bool {
-    characters
-        .iter()
-        .any(|&(id, name)| managers.iter().any(|m| names_character(m, id, name)))
-}
-
-/// Manager names in config that match no character the waitlist knows: a typo, a rename, or
-/// someone who hasn't logged in yet
-pub async fn unknown_managers(
-    db: &crate::DB,
-    config: &SrpConfig,
-) -> Result<Vec<String>, sqlx::Error> {
-    if config.managers.is_empty() {
-        return Ok(Vec::new());
-    }
-    let (ids, names): (Vec<_>, Vec<_>) = config
-        .managers
-        .iter()
-        .partition(|m| m.trim().parse::<i64>().is_ok());
-    let ids: Vec<i64> = ids.iter().filter_map(|m| m.trim().parse().ok()).collect();
-    let names: Vec<String> = names.iter().map(|m| m.trim().to_lowercase()).collect();
-    let known: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, name FROM \"character\" WHERE id = ANY($1) OR lower(name) = ANY($2)",
-    )
-    .bind(&ids)
-    .bind(&names)
-    .fetch_all(db)
-    .await?;
-    Ok(config
-        .managers
-        .iter()
-        .filter(|m| !known.iter().any(|(id, name)| names_character(m, *id, name)))
-        .cloned()
-        .collect())
-}
-
-/// OAuth state marking a login as "connect this character as the SRP wallet"
-pub fn connect_state(character_id: i64) -> Vec<u8> {
-    [CONNECT_STATE_PREFIX, character_id.to_string().as_bytes()].concat()
-}
-
-pub fn parse_connect_state(state: &[u8]) -> Option<i64> {
+pub fn parse_connect_state(state: &[u8]) -> Option<ConnectState> {
     let rest = state.strip_prefix(CONNECT_STATE_PREFIX)?;
-    std::str::from_utf8(rest).ok()?.parse().ok()
+    let parts: Vec<&str> = std::str::from_utf8(rest).ok()?.split(':').collect();
+    let (account_id, character_id, waitlist_id, issued_at) = match parts.as_slice() {
+        // Started before the account, waitlist and time were carried
+        [character_id] => (0, character_id.parse().ok()?, None, None),
+        [account_id, character_id, waitlist_id, issued_at] => {
+            let waitlist_id = match *waitlist_id {
+                "0" => None,
+                id => Some(id.parse().ok()?),
+            };
+            let issued_at: i64 = issued_at.parse().ok()?;
+            let now = chrono::Utc::now().timestamp();
+            if now - issued_at > CONNECT_STATE_MAX_AGE_SECS as i64
+                || issued_at - now > CONNECT_STATE_FUTURE_SLACK_SECS
+            {
+                return None;
+            }
+            (
+                account_id.parse().ok()?,
+                character_id.parse().ok()?,
+                waitlist_id,
+                Some(issued_at),
+            )
+        }
+        _ => return None,
+    };
+    Some(ConnectState {
+        account_id,
+        character_id,
+        waitlist_id,
+        issued_at,
+    })
 }
 
-/// The SRP wallets, one per SRP corp (table srp_connection). Runtime-checked queries, like
+/// The SRP wallets (table srp_connection), one per wallet character: the SeAT login of a character
+/// in an SRP corp. Keyed by character rather than corp, so two waitlists can each have their own
+/// account even when both accounts are in the same corp. Runtime-checked queries, like
 /// routes/statistics.rs, so sqlx-data.json needs no regeneration.
 pub mod connection {
     // Not Debug: it holds the refresh token, which must never reach a log
@@ -511,53 +503,81 @@ pub mod connection {
         pub connected_at: i64,
     }
 
-    /// By corp name
+    /// By corp name, then character id
     pub async fn all(db: &crate::DB) -> Result<Vec<Connection>, sqlx::Error> {
         sqlx::query_as::<_, Connection>(
             "SELECT character_id, corporation_id, corporation_name, refresh_token, connected_by,
-                connected_at FROM srp_connection ORDER BY corporation_name",
+                connected_at FROM srp_connection ORDER BY corporation_name, character_id",
         )
         .fetch_all(db)
         .await
     }
 
+    /// One id per corp, for the periodic check: several accounts in the same corp read the same
+    /// wallet
     pub async fn corporation_ids(db: &crate::DB) -> Result<Vec<i64>, sqlx::Error> {
-        sqlx::query_scalar("SELECT corporation_id FROM srp_connection ORDER BY corporation_name")
-            .fetch_all(db)
-            .await
+        sqlx::query_scalar(
+            "SELECT DISTINCT corporation_id FROM srp_connection ORDER BY corporation_id",
+        )
+        .fetch_all(db)
+        .await
     }
 
-    pub async fn get(
-        db: &crate::DB,
-        corporation_id: i64,
-    ) -> Result<Option<Connection>, sqlx::Error> {
+    pub async fn get(db: &crate::DB, character_id: i64) -> Result<Option<Connection>, sqlx::Error> {
         sqlx::query_as::<_, Connection>(
             "SELECT character_id, corporation_id, corporation_name, refresh_token, connected_by,
-                connected_at FROM srp_connection WHERE corporation_id = $1",
+                connected_at FROM srp_connection WHERE character_id = $1",
         )
-        .bind(corporation_id)
+        .bind(character_id)
         .fetch_optional(db)
         .await
     }
 
-    pub async fn exists(db: &crate::DB, corporation_id: i64) -> Result<bool, sqlx::Error> {
+    /// The corp's wallets, the most recently connected first: a check tries them in this order
+    /// until one works
+    pub async fn for_corporation(
+        db: &crate::DB,
+        corporation_id: i64,
+    ) -> Result<Vec<Connection>, sqlx::Error> {
+        sqlx::query_as::<_, Connection>(
+            "SELECT character_id, corporation_id, corporation_name, refresh_token, connected_by,
+                connected_at FROM srp_connection WHERE corporation_id = $1
+                ORDER BY connected_at DESC, character_id",
+        )
+        .bind(corporation_id)
+        .fetch_all(db)
+        .await
+    }
+
+    pub async fn exists(db: &crate::DB, character_id: i64) -> Result<bool, sqlx::Error> {
+        sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM srp_connection WHERE character_id = $1)")
+            .bind(character_id)
+            .fetch_one(db)
+            .await
+    }
+
+    /// Whether any account is still connected for the corp
+    pub async fn corporation_connected(
+        db: &crate::DB,
+        corporation_id: i64,
+    ) -> Result<bool, sqlx::Error> {
         sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM srp_connection WHERE corporation_id = $1)")
             .bind(corporation_id)
             .fetch_one(db)
             .await
     }
 
-    /// Replaces the corp's previous wallet, if any
+    /// Replaces the character's previous login, if any
     pub async fn save(db: &crate::DB, connection: &Connection) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "INSERT INTO srp_connection (corporation_id, character_id, corporation_name,
+            "INSERT INTO srp_connection (character_id, corporation_id, corporation_name,
                 refresh_token, connected_by, connected_at)
             VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (corporation_id) DO UPDATE SET character_id = $2, corporation_name = $3,
+            ON CONFLICT (character_id) DO UPDATE SET corporation_id = $2, corporation_name = $3,
                 refresh_token = $4, connected_by = $5, connected_at = $6",
         )
-        .bind(connection.corporation_id)
         .bind(connection.character_id)
+        .bind(connection.corporation_id)
         .bind(&connection.corporation_name)
         .bind(&connection.refresh_token)
         .bind(connection.connected_by)
@@ -572,15 +592,15 @@ pub mod connection {
     /// Returns whether it was replaced.
     pub async fn update_refresh_token(
         db: &crate::DB,
-        corporation_id: i64,
+        character_id: i64,
         old: &str,
         new: &str,
     ) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(
             "UPDATE srp_connection SET refresh_token = $3
-                WHERE corporation_id = $1 AND refresh_token = $2",
+                WHERE character_id = $1 AND refresh_token = $2",
         )
-        .bind(corporation_id)
+        .bind(character_id)
         .bind(old)
         .bind(new)
         .execute(db)
@@ -588,34 +608,45 @@ pub mod connection {
         Ok(result.rows_affected() == 1)
     }
 
-    /// Returns whether there was one
-    pub async fn delete(db: &crate::DB, corporation_id: i64) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query("DELETE FROM srp_connection WHERE corporation_id = $1")
-            .bind(corporation_id)
-            .execute(db)
-            .await?;
+    /// Deletes the connection only while it is still the one read (`connected_at`): a connect or
+    /// reconnect since then must not be deleted unseen. Returns whether it was deleted.
+    pub async fn delete(
+        db: &crate::DB,
+        character_id: i64,
+        connected_at: i64,
+    ) -> Result<bool, sqlx::Error> {
+        let result =
+            sqlx::query("DELETE FROM srp_connection WHERE character_id = $1 AND connected_at = $2")
+                .bind(character_id)
+                .bind(connected_at)
+                .execute(db)
+                .await?;
         Ok(result.rows_affected() == 1)
     }
 }
 
-/// Which SRP corp's payments cover each waitlist's pilots (table srp_waitlist), set on the SRP
-/// wallet page. None until someone sets one: a deployment can be shared with communities that
-/// don't run SRP. Kept when the corp's wallet is disconnected; the waitlist then shows nothing.
+/// Which wallet account pays SRP for each waitlist (table srp_waitlist), set on the SRP wallet
+/// page. None until someone sets one: a deployment can be shared with communities that don't run
+/// SRP. Kept when the wallet is disconnected; the waitlist then shows nothing.
 pub mod waitlists {
     #[derive(sqlx::FromRow)]
     pub struct Waitlist {
         pub id: i64,
         pub name: String,
-        pub corporation_id: Option<i64>,
-        /// Who set the corp and when
+        pub character_id: Option<i64>,
+        /// The corp a migrated waitlist pointed at while it has no wallet account yet
+        pub pending_corporation_id: Option<i64>,
+        /// Who set the wallet and when
         pub set_by: Option<i64>,
         pub set_at: Option<i64>,
     }
 
-    /// Every waitlist that isn't archived, with its SRP corp
+    /// Every waitlist that isn't archived, with its SRP wallet
     pub async fn list(db: &crate::DB) -> Result<Vec<Waitlist>, sqlx::Error> {
         sqlx::query_as::<_, Waitlist>(
-            "SELECT w.id, w.name, s.corporation_id, s.set_by, s.set_at FROM waitlist w
+            "SELECT w.id, w.name, s.character_id, s.corporation_id AS pending_corporation_id,
+                s.set_by, s.set_at
+                FROM waitlist w
                 LEFT JOIN srp_waitlist s ON s.waitlist_id = w.id
                 WHERE NOT w.is_archived ORDER BY w.name",
         )
@@ -634,37 +665,79 @@ pub mod waitlists {
             .await
     }
 
+    /// The corp whose payments cover the waitlist's pilots. An assigned account is the source: its
+    /// corp, or nothing while its wallet is disconnected. Only a corp-only assignment (a migration
+    /// leftover) resolves to the corp on its own.
     pub async fn corporation_of(
         db: &crate::DB,
         waitlist_id: i64,
     ) -> Result<Option<i64>, sqlx::Error> {
-        sqlx::query_scalar("SELECT corporation_id FROM srp_waitlist WHERE waitlist_id = $1")
-            .bind(waitlist_id)
-            .fetch_optional(db)
-            .await
+        // Option<Option>: no row, or a row that resolves to no corp. The scalar must be Option
+        // or a NULL decode fails before the flatten.
+        let corporation: Option<Option<i64>> = sqlx::query_scalar(
+            "SELECT COALESCE(c.corporation_id,
+                    CASE WHEN s.character_id IS NULL THEN s.corporation_id END)
+                FROM srp_waitlist s
+                LEFT JOIN srp_connection c ON c.character_id = s.character_id
+                WHERE s.waitlist_id = $1",
+        )
+        .bind(waitlist_id)
+        .fetch_optional(db)
+        .await?;
+        Ok(corporation.flatten())
     }
 
-    /// Sets the waitlist's SRP corp, or None for no SRP. Returns whether anything changed.
+    /// The waitlist's current assignment: wallet character, and the corp it falls back to
+    pub async fn assignment(
+        db: &crate::DB,
+        waitlist_id: i64,
+    ) -> Result<(Option<i64>, Option<i64>), sqlx::Error> {
+        Ok(sqlx::query_as(
+            "SELECT character_id, corporation_id FROM srp_waitlist WHERE waitlist_id = $1",
+        )
+        .bind(waitlist_id)
+        .fetch_optional(db)
+        .await?
+        .unwrap_or((None, None)))
+    }
+
+    /// Sets the waitlist's SRP wallet character, or the corp to fall back to while it has none, or
+    /// neither for no SRP. Returns whether anything changed.
     pub async fn set(
         db: &crate::DB,
         waitlist_id: i64,
+        character_id: Option<i64>,
         corporation_id: Option<i64>,
         by: i64,
         now: i64,
     ) -> Result<bool, sqlx::Error> {
-        let query = match corporation_id {
-            Some(corporation_id) => sqlx::query(
-                "INSERT INTO srp_waitlist (waitlist_id, corporation_id, set_by, set_at)
-                    VALUES ($1, $2, $3, $4)
+        let query = match (character_id, corporation_id) {
+            (Some(character_id), corporation_id) => sqlx::query(
+                "INSERT INTO srp_waitlist (waitlist_id, character_id, corporation_id, set_by, set_at)
+                    VALUES ($1, $2, $3, $4, $5)
                     ON CONFLICT (waitlist_id) DO UPDATE
-                    SET corporation_id = $2, set_by = $3, set_at = $4
-                    WHERE srp_waitlist.corporation_id <> $2",
+                    SET character_id = $2, corporation_id = $3, set_by = $4, set_at = $5
+                    WHERE srp_waitlist.character_id IS DISTINCT FROM $2
+                        OR srp_waitlist.corporation_id IS DISTINCT FROM $3",
+            )
+            .bind(waitlist_id)
+            .bind(character_id)
+            .bind(corporation_id)
+            .bind(by)
+            .bind(now),
+            (None, Some(corporation_id)) => sqlx::query(
+                "INSERT INTO srp_waitlist (waitlist_id, character_id, corporation_id, set_by, set_at)
+                    VALUES ($1, NULL, $2, $3, $4)
+                    ON CONFLICT (waitlist_id) DO UPDATE
+                    SET character_id = NULL, corporation_id = $2, set_by = $3, set_at = $4
+                    WHERE srp_waitlist.corporation_id IS DISTINCT FROM $2
+                        OR srp_waitlist.character_id IS NOT NULL",
             )
             .bind(waitlist_id)
             .bind(corporation_id)
             .bind(by)
             .bind(now),
-            None => {
+            (None, None) => {
                 sqlx::query("DELETE FROM srp_waitlist WHERE waitlist_id = $1").bind(waitlist_id)
             }
         };
@@ -930,40 +1003,52 @@ mod tests {
     }
 
     #[test]
-    fn managers_by_name_or_id() {
-        let managers = vec!["Wallet Keeper".to_string(), " 2112345678 ".to_string()];
-        // A listed alt counts as much as a listed main; names ignore case and spaces
-        assert!(named_manager(
-            &managers,
-            &[(1, "Main Pilot"), (2, "wallet keeper")]
-        ));
-        // An id survives a rename
-        assert!(named_manager(&managers, &[(2112345678, "Renamed Pilot")]));
-        assert!(!named_manager(
-            &managers,
-            &[(1, "Main Pilot"), (2, "Wallet Keeper Two")]
-        ));
-        // A name that happens to be digits is still read as an id
-        assert!(!named_manager(&managers, &[(3, "2112345678")]));
-        assert!(!named_manager(&[], &[(2, "Wallet Keeper")]));
-    }
-
-    #[test]
-    fn names_compare_like_the_database() {
-        assert!(same_name(" Wallet Keeper ", "wallet keeper"));
-        assert!(same_name("ÉLAN", "élan"));
-        assert!(!same_name("Wallet Keeper", "Wallet Keeper Two"));
-    }
-
-    #[test]
     fn connect_state_round_trips() {
-        assert_eq!(
-            parse_connect_state(&connect_state(2112345678)),
-            Some(2112345678)
-        );
+        let state = parse_connect_state(&connect_state(7, 2112345678, None)).unwrap();
+        assert_eq!(state.account_id, 7);
+        assert_eq!(state.character_id, 2112345678);
+        assert_eq!(state.waitlist_id, None);
+        // With a waitlist, so the login assigns it when it comes back
+        let state = parse_connect_state(&connect_state(7, 2112345678, Some(5))).unwrap();
+        assert_eq!(state.waitlist_id, Some(5));
+        // A login started before the account, waitlist and time were carried
+        let state = parse_connect_state(b"srpconnect:2112345678").unwrap();
+        assert_eq!(state.account_id, 0);
+        assert_eq!(state.character_id, 2112345678);
+        assert_eq!(state.waitlist_id, None);
+
         assert_eq!(parse_connect_state(b"oauthhellostate"), None);
         assert_eq!(parse_connect_state(b"srpconnect:abc"), None);
         assert_eq!(parse_connect_state(b"srpconnect:"), None);
+        assert_eq!(parse_connect_state(b"srpconnect:1:"), None);
+        assert_eq!(parse_connect_state(b"srpconnect:7:1:0:1:2"), None);
+    }
+
+    // The login URL carries the state Branca-encrypted: the ids must not be readable in it
+    #[test]
+    fn connect_state_is_encrypted() {
+        let mut branca = branca::Branca::new(&[7u8; 32]).unwrap();
+        let encoded = branca
+            .encode(&connect_state(7, 2112345678, Some(5)))
+            .unwrap();
+        assert!(!encoded.contains("srpconnect"));
+        assert!(!encoded.contains("2112345678"));
+        let decoded = branca.decode(&encoded, 60).unwrap();
+        assert_eq!(
+            parse_connect_state(&decoded).unwrap().character_id,
+            2112345678
+        );
+    }
+
+    #[test]
+    fn connect_state_goes_stale() {
+        let old = chrono::Utc::now().timestamp() - CONNECT_STATE_MAX_AGE_SECS as i64 - 1;
+        assert_eq!(
+            parse_connect_state(format!("srpconnect:7:1:0:{}", old).as_bytes()),
+            None
+        );
+        let fresh = chrono::Utc::now().timestamp() - CONNECT_STATE_MAX_AGE_SECS as i64 + 60;
+        assert!(parse_connect_state(format!("srpconnect:7:1:0:{}", fresh).as_bytes()).is_some());
     }
 
     #[test]

@@ -5,7 +5,7 @@ import styled from "styled-components";
 import { MobileButton } from "../Components/Form";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars, faTimes } from "@fortawesome/free-solid-svg-icons";
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 
 const Links = styled(NavLink).attrs((props) => ({
   className: props.isActive ? "active" : "",
@@ -81,7 +81,7 @@ export function MobileNavButton({ isOpen, setIsOpen }) {
 }
 
 export function NavLinks({ whoami }) {
-  const { t } = useTranslation('navigation');
+  const { t } = useTranslation("navigation");
 
   return (
     <>
@@ -112,7 +112,7 @@ export function NavLinks({ whoami }) {
           {t("fleet")}
         </Links>
       )}
-      {/* SRP managers who aren't FCs still need the way to the SRP wallet page */}
+      {/* The FC dashboard holds the SRP wallet page, which every fc role can open */}
       {whoami && (whoami.access["fleet-view"] || whoami.access["srp-manage"]) && (
         <Links end to="/fc">
           {t("fc")}

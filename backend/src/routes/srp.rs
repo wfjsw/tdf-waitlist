@@ -91,8 +91,8 @@ fn waitlist_status(
 
 #[derive(Debug, Serialize)]
 struct StatusResponse {
-    /// False when the check is switched off or this waitlist has no SRP corp: the page can stop
-    /// asking
+    /// False when nothing can feed this waitlist: no assignment, or its assigned account's wallet
+    /// is gone. The page can stop asking.
     applies: bool,
     /// False also when there's no recent successful check of the waitlist's SRP corp (not
     /// connected, or failing for over two hours): show nothing rather than guess
@@ -113,22 +113,18 @@ async fn status(
 ) -> Result<Json<StatusResponse>, Madness> {
     let ids = parse_ids(character_ids)?;
 
-    let config = &app.config.srp;
-    let rule = Rule::from_config(config);
+    let rule = srp::RULE;
     let now = chrono::Utc::now().timestamp();
     let nothing = |applies| StatusResponse {
         applies,
         available: false,
         checked_at: None,
-        min_amount: config.min_amount,
-        coverage_hours: config.coverage_hours,
+        min_amount: srp::MIN_AMOUNT,
+        coverage_hours: srp::COVERAGE_HOURS,
         characters: Vec::new(),
     };
 
     // Before checking the characters: most requests come from waitlists SRP doesn't apply to
-    if !config.enable {
-        return Ok(Json(nothing(false)));
-    }
     let corporation_id = match srp::waitlists::corporation_of(app.get_db(), waitlist_id).await? {
         Some(c) => c,
         None => return Ok(Json(nothing(false))),
@@ -159,15 +155,15 @@ async fn status(
         applies: true,
         available: true,
         checked_at,
-        min_amount: config.min_amount,
-        coverage_hours: config.coverage_hours,
+        min_amount: srp::MIN_AMOUNT,
+        coverage_hours: srp::COVERAGE_HOURS,
         characters,
     }))
 }
 
 #[derive(Debug, Serialize)]
 struct FleetStatusResponse {
-    /// As for pilots: false when SRP is off or the waitlist has no SRP corp
+    /// As for pilots: false when the waitlist has no SRP wallet
     applies: bool,
     available: bool,
     checked_at: Option<i64>,
@@ -189,19 +185,9 @@ async fn fleet_status(
     account.require_access("fleet-view")?;
     let ids = parse_ids(character_ids)?;
 
-    let config = &app.config.srp;
-    let corporation_id = match config.enable {
-        true => srp::waitlists::corporation_of(app.get_db(), waitlist_id).await?,
-        false => None,
-    };
+    let corporation_id = srp::waitlists::corporation_of(app.get_db(), waitlist_id).await?;
     let now = chrono::Utc::now().timestamp();
-    let status = waitlist_status(
-        &app.srp_state.read(),
-        corporation_id,
-        &ids,
-        now,
-        &Rule::from_config(config),
-    );
+    let status = waitlist_status(&app.srp_state.read(), corporation_id, &ids, now, &srp::RULE);
 
     let response = match status {
         WaitlistStatus::Available {
@@ -248,12 +234,12 @@ struct RecentPayment {
     via: Via,
 }
 
-/// One connected SRP corp's wallet and its check
+/// One connected SRP wallet account and its check
 #[derive(Debug, Serialize)]
 struct Wallet {
+    character: NamedCharacter,
     corporation_id: i64,
     corporation_name: String,
-    character: NamedCharacter,
     connected_by: NamedCharacter,
     connected_at: i64,
     checked_at: Option<i64>,
@@ -267,8 +253,11 @@ struct Wallet {
 struct AdminWaitlist {
     id: i64,
     name: String,
-    /// The SRP corp whose payments cover its pilots; None for no SRP. May be a corp whose wallet
-    /// has since been disconnected.
+    /// The wallet account whose payments cover its pilots; None for no SRP. May be a character
+    /// whose wallet has since been disconnected.
+    character: Option<NamedCharacter>,
+    /// A corp it used before the account was picked (or while its wallet is disconnected), from
+    /// the migration; the character wins once set.
     corporation_id: Option<i64>,
     set_by: Option<NamedCharacter>,
     set_at: Option<i64>,
@@ -276,25 +265,20 @@ struct AdminWaitlist {
 
 #[derive(Debug, Serialize)]
 struct AdminResponse {
-    enabled: bool,
     min_amount: i64,
     coverage_hours: i64,
     division: i32,
-    /// Manager names in config that match no character the waitlist knows
-    unknown_managers: Vec<String>,
     /// Why the last connect failed, for a few minutes after it did
     connect_error: Option<String>,
-    /// By corp name
+    /// By corp name, then character
     wallets: Vec<Wallet>,
     /// Every waitlist that isn't archived, by name
     waitlists: Vec<AdminWaitlist>,
 }
 
-async fn require_manager(app: &Application, account: &AuthenticatedAccount) -> Result<(), Madness> {
-    match srp::is_manager(app.get_db(), &app.config.srp, account).await? {
-        true => Ok(()),
-        false => Err(Madness::AccessDenied),
-    }
+fn require_manager(account: &AuthenticatedAccount) -> Result<(), Madness> {
+    account.require_access("srp-manage")?;
+    Ok(())
 }
 
 #[get("/api/srp/admin")]
@@ -302,15 +286,13 @@ async fn admin_status(
     app: &rocket::State<Application>,
     account: AuthenticatedAccount,
 ) -> Result<Json<AdminResponse>, Madness> {
-    require_manager(app, &account).await?;
+    require_manager(&account)?;
 
-    let config = &app.config.srp;
-    let rule = Rule::from_config(config);
+    let rule = srp::RULE;
     let now = chrono::Utc::now().timestamp();
 
     let connections = connection::all(app.get_db()).await?;
     let waitlists = srp::waitlists::list(app.get_db()).await?;
-    let unknown_managers = srp::unknown_managers(app.get_db(), config).await?;
 
     // Copied out so the lock isn't held across the name lookup below
     struct Check {
@@ -344,19 +326,29 @@ async fn admin_status(
         ids.extend(check.recent.iter().map(|(id, _)| *id));
     }
     ids.extend(waitlists.iter().filter_map(|w| w.set_by));
+    ids.extend(waitlists.iter().filter_map(|w| w.character_id));
     let names = character::lookup(app.get_db(), &ids).await?;
     let named = |id: i64| NamedCharacter {
         id,
         name: names.get(&id).map(|c| c.name.clone()),
     };
 
+    // A migrated waitlist may only have kept a corp: if an account of that corp is connected, it
+    // is what feeds the waitlist now, so show it as the row's wallet
+    let mut account_for_corp: HashMap<i64, i64> = HashMap::new();
+    for c in &connections {
+        account_for_corp
+            .entry(c.corporation_id)
+            .or_insert(c.character_id);
+    }
+
     let wallets = connections
         .into_iter()
         .zip(checks)
         .map(|(c, check)| Wallet {
+            character: named(c.character_id),
             corporation_id: c.corporation_id,
             corporation_name: c.corporation_name,
-            character: named(c.character_id),
             connected_by: named(c.connected_by),
             connected_at: c.connected_at,
             checked_at: check.checked_at,
@@ -376,19 +368,27 @@ async fn admin_status(
         .collect();
 
     Ok(Json(AdminResponse {
-        enabled: config.enable,
-        min_amount: config.min_amount,
-        coverage_hours: config.coverage_hours,
-        division: config.division,
-        unknown_managers,
+        min_amount: srp::MIN_AMOUNT,
+        coverage_hours: srp::COVERAGE_HOURS,
+        division: srp::DIVISION,
         connect_error,
         wallets,
         waitlists: waitlists
             .into_iter()
             .map(|w| AdminWaitlist {
                 id: w.id,
+                character: w
+                    .character_id
+                    .or_else(|| {
+                        w.pending_corporation_id
+                            .and_then(|c| account_for_corp.get(&c).copied())
+                    })
+                    .map(|id| NamedCharacter {
+                        id,
+                        name: names.get(&id).map(|c| c.name.clone()),
+                    }),
+                corporation_id: w.pending_corporation_id,
                 name: w.name,
-                corporation_id: w.corporation_id,
                 set_by: w.set_by.map(named),
                 set_at: w.set_at,
             })
@@ -396,33 +396,40 @@ async fn admin_status(
     }))
 }
 
-/// Starts connecting `character_id` as the wallet character of its corp: returns the SeAT login
-/// URL. The login comes back through the normal auth callback, which hands it to `finish_connect`.
-#[get("/api/srp/admin/connect?<character_id>")]
+/// Starts connecting `character_id` as an SRP wallet: returns the SeAT login URL. With
+/// `waitlist_id` the wallet is also assigned to that waitlist when the login comes back, which
+/// hands it to `finish_connect`.
+#[get("/api/srp/admin/connect?<character_id>&<waitlist_id>")]
 async fn connect(
     app: &rocket::State<Application>,
     account: AuthenticatedAccount,
     character_id: i64,
+    waitlist_id: Option<i64>,
 ) -> Result<String, Madness> {
-    require_manager(app, &account).await?;
-    if !app.config.srp.enable {
-        return Err(Madness::BadRequest(SWITCHED_OFF.to_string()));
+    require_manager(&account)?;
+    if let Some(waitlist_id) = waitlist_id {
+        if srp::waitlists::active_name(app.get_db(), waitlist_id)
+            .await?
+            .is_none()
+        {
+            return Err(Madness::BadRequest("No such waitlist".to_string()));
+        }
     }
     authorize_character(app.get_db(), &account, character_id, None).await?;
 
     Ok(super::auth::authorize_url(
         app,
         &srp::connect_scopes(),
-        &srp::connect_state(character_id),
+        &srp::connect_state(account.id, character_id, waitlist_id),
     ))
 }
 
 #[derive(Deserialize)]
 struct Disconnect {
-    corporation_id: i64,
+    character_id: i64,
 }
 
-/// Removes one SRP corp's wallet. Waitlists using that corp keep it, and show nothing until it's
+/// Removes one SRP wallet account. Waitlists using it keep it, and show nothing until it's
 /// reconnected.
 #[post("/api/srp/admin/disconnect", data = "<input>")]
 async fn disconnect(
@@ -430,40 +437,69 @@ async fn disconnect(
     account: AuthenticatedAccount,
     input: Json<Disconnect>,
 ) -> Result<&'static str, Madness> {
-    require_manager(app, &account).await?;
-    let deleted = connection::delete(app.get_db(), input.corporation_id).await?;
-    app.srp_state.write().wallet_removed(input.corporation_id);
-    if deleted {
-        info!(
-            "SRP wallet of corp {} disconnected by {}",
-            input.corporation_id, account.id
-        );
+    require_manager(&account)?;
+    let connection = connection::get(app.get_db(), input.character_id)
+        .await?
+        .ok_or_else(|| Madness::BadRequest("That wallet isn't connected".to_string()))?;
+    // Only the connection that was read: a reconnect since then must survive
+    if !connection::delete(app.get_db(), input.character_id, connection.connected_at).await? {
+        return Err(Madness::BadRequest(
+            "The wallet changed while disconnecting. Try again.".to_string(),
+        ));
     }
+    // Another account of the same corp can still feed its checks
+    if !connection::corporation_connected(app.get_db(), connection.corporation_id).await? {
+        app.srp_state
+            .write()
+            .wallet_removed(connection.corporation_id);
+    }
+    info!(
+        "SRP wallet character {} disconnected by {}",
+        input.character_id, account.id
+    );
     Ok("OK")
 }
 
 #[derive(Deserialize)]
 struct SetWaitlist {
     waitlist_id: i64,
-    /// None for no SRP
+    /// None for no SRP, or for a corporation_id to keep as the fallback
+    character_id: Option<i64>,
+    /// The corp kept for a waitlist whose wallet account is gone
     corporation_id: Option<i64>,
 }
 
-/// Sets which SRP corp's payments cover a waitlist's pilots, or none
+/// Sets which wallet account pays SRP for a waitlist, or none
 #[post("/api/srp/admin/waitlist", data = "<input>")]
 async fn set_waitlist(
     app: &rocket::State<Application>,
     account: AuthenticatedAccount,
     input: Json<SetWaitlist>,
 ) -> Result<&'static str, Madness> {
-    require_manager(app, &account).await?;
+    require_manager(&account)?;
     let name = srp::waitlists::active_name(app.get_db(), input.waitlist_id)
         .await?
         .ok_or_else(|| Madness::BadRequest("No such waitlist".to_string()))?;
+    let current = srp::waitlists::assignment(app.get_db(), input.waitlist_id).await?;
+    if let Some(character_id) = input.character_id {
+        // A disconnected wallet can stay (it's the orphan entry in the picker); anything else
+        // must at least be a character the waitlist knows
+        let known = connection::exists(app.get_db(), character_id).await?
+            || character::lookup(app.get_db(), &[character_id])
+                .await?
+                .contains_key(&character_id);
+        if !known {
+            return Err(Madness::BadRequest("No such character".to_string()));
+        }
+    }
     if let Some(corporation_id) = input.corporation_id {
-        if !connection::exists(app.get_db(), corporation_id).await? {
+        // A waitlist can keep a corp while its wallet is gone, but a new corp must be one SRP
+        // actually watches: otherwise a typo pins the waitlist to payments nobody collects
+        if !connection::corporation_connected(app.get_db(), corporation_id).await?
+            && current.1 != Some(corporation_id)
+        {
             return Err(Madness::BadRequest(
-                "That SRP corp's wallet isn't connected".to_string(),
+                "That corp's wallet isn't connected".to_string(),
             ));
         }
     }
@@ -472,18 +508,23 @@ async fn set_waitlist(
     if srp::waitlists::set(
         app.get_db(),
         input.waitlist_id,
+        input.character_id,
         input.corporation_id,
         account.id,
         now,
     )
     .await?
     {
-        match input.corporation_id {
-            Some(c) => info!(
-                "SRP on waitlist {} ({}) now from corp {}, by {}",
+        match (input.character_id, input.corporation_id) {
+            (Some(c), _) => info!(
+                "SRP on waitlist {} ({}) now from wallet character {}, by {}",
                 name, input.waitlist_id, c, account.id
             ),
-            None => info!(
+            (None, Some(c)) => info!(
+                "SRP on waitlist {} ({}) kept for corp {}, waiting for a wallet, by {}",
+                name, input.waitlist_id, c, account.id
+            ),
+            (None, None) => info!(
                 "SRP removed from waitlist {} ({}) by {}",
                 name, input.waitlist_id, account.id
             ),
@@ -492,8 +533,6 @@ async fn set_waitlist(
     Ok("OK")
 }
 
-const SWITCHED_OFF: &str = "The SRP check is switched off in the server config.";
-
 /// Completes a connect started by `connect`, then sends the admin back to the SRP wallet page,
 /// which shows the reason if it failed. The check itself runs in the updater, not in this login
 /// redirect: it can take a while, and the request may be dropped.
@@ -501,12 +540,22 @@ pub async fn finish_connect(
     app: &Application,
     account: Option<AuthenticatedAccount>,
     code: &str,
-    character_id: i64,
+    state: srp::ConnectState,
 ) -> Redirect {
-    match save_connection(app, account, code, character_id).await {
-        Ok(corporation_id) => {
+    match save_connection(app, account, code, &state).await {
+        Ok((corporation_id, assignment_error)) => {
             app.srp_state.write().wallet_replaced(corporation_id);
             app.srp_state.check_now();
+            // The wallet is connected: a failed waitlist assignment must not undo it, but the
+            // admin has to hear about it
+            if let Some(message) = assignment_error {
+                warn!(
+                    "SRP wallet connected but its waitlist assignment failed: {}",
+                    message
+                );
+                let now = chrono::Utc::now().timestamp();
+                app.srp_state.write().connect_failed(now, message);
+            }
         }
         Err(message) => {
             warn!("SRP wallet connect failed: {}", message);
@@ -546,26 +595,31 @@ async fn corporation_of(esi: &ESIClient, character_id: i64) -> Result<(i64, Stri
     Ok((info.corporation_id, corporation.name))
 }
 
-/// Stores the login as the wallet of the character's corp, replacing that corp's previous one.
-/// Returns the corp.
+/// Stores the login as an SRP wallet, replacing the character's previous one, and assigns it to
+/// `waitlist_id` when given. Returns the corp.
 async fn save_connection(
     app: &Application,
     account: Option<AuthenticatedAccount>,
     code: &str,
-    character_id: i64,
-) -> Result<i64, String> {
+    state: &srp::ConnectState,
+) -> Result<(i64, Option<String>), String> {
     let account = account.ok_or(
         "Log in to the waitlist first, then connect the SRP wallet from the FC dashboard.",
     )?;
-    if !srp::is_manager(app.get_db(), &app.config.srp, &account)
-        .await
-        .map_err(database_error)?
-    {
+    if !srp::is_manager(&account) {
         return Err("You don't have permission to connect the SRP wallet.".to_string());
     }
-    if !app.config.srp.enable {
-        return Err(SWITCHED_OFF.to_string());
+    // The state is encrypted, but binding it to the account stops a connect link started by
+    // someone else from being completed in this session (0: a login started before the binding)
+    if state.account_id != 0 && account.id != state.account_id {
+        return Err(
+            "This connect link was started by another account. Start it again from the SRP wallet \
+            page."
+                .to_string(),
+        );
     }
+    let character_id = state.character_id;
+    let waitlist_id = state.waitlist_id;
 
     // Not save_auth: this login must not replace the admin's normal one
     let auth = app
@@ -609,11 +663,37 @@ async fn save_connection(
     .await
     .map_err(database_error)?;
 
+    // Started from a waitlist row: use the new wallet there straight away. A waitlist archived
+    // while the login was open is skipped. The wallet itself is already saved, so an assignment
+    // error is reported without undoing it.
+    let mut assignment_error = None;
+    if let Some(waitlist_id) = waitlist_id {
+        // Nothing here may turn the saved wallet into an error: only `assignment_error`
+        match srp::waitlists::active_name(app.get_db(), waitlist_id).await {
+            Err(e) => assignment_error = Some(database_error(e)),
+            Ok(Some(_)) => {
+                if let Err(e) = srp::waitlists::set(
+                    app.get_db(),
+                    waitlist_id,
+                    Some(character_id),
+                    Some(corporation_id),
+                    account.id,
+                    chrono::Utc::now().timestamp(),
+                )
+                .await
+                {
+                    assignment_error = Some(database_error(e));
+                }
+            }
+            Ok(None) => {}
+        }
+    }
+
     info!(
         "SRP wallet of corp {} connected: character {}, by {}",
         corporation_id, character_id, account.id
     );
-    Ok(corporation_id)
+    Ok((corporation_id, assignment_error))
 }
 
 pub fn routes() -> Vec<rocket::Route> {
@@ -754,5 +834,383 @@ mod tests {
         let expired = character_status(&paid, 1, 1000 + 24 * 3600, &rule);
         assert!(!expired.paid && expired.expires_at.is_none() && expired.via.is_none());
         assert!(!character_status(&paid, 2, 2000, &rule).paid);
+    }
+
+    // Runs the real handler against a throwaway Postgres to check what corporation_id values
+    // set_waitlist accepts. Setup: docker run --rm -d -e POSTGRES_PASSWORD=pass -p 55432:5432
+    // postgres:16, then create database refute1 with `character` and `waitlist` tables and run
+    // sql/migration_postgres_0005.sql on it. Run with: cargo test --bin tdf_wl -- --ignored
+    #[ignore = "needs a throwaway Postgres on 127.0.0.1:55432; see the comment"]
+    #[rocket::async_test]
+    async fn set_waitlist_corp_validation() {
+        use crate::config::{
+            AppConfig, Config, DatabaseConfig, ESIConfig, FleetUpdaterConfig, SSEConfig,
+            SkillUpdaterConfig,
+        };
+        use std::sync::Arc;
+
+        let url = "postgres://postgres:pass@127.0.0.1:55432/refute1";
+        let pool = sqlx::Pool::<sqlx::Postgres>::connect(url).await.unwrap();
+        sqlx::query(
+            "ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS name varchar NOT NULL DEFAULT ''",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS is_archived boolean NOT NULL DEFAULT false",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS is_open boolean NOT NULL DEFAULT false",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query("CREATE TABLE IF NOT EXISTS alt_character (account_id int8, alt_id int8)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM srp_waitlist")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM srp_connection")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM waitlist")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM character")
+            .execute(&pool)
+            .await
+            .unwrap();
+        // A previous run may have left rows behind
+        sqlx::query(
+            "INSERT INTO character (id, name) VALUES (1, 'a'), (2, 'b'), (3, 'c')
+                ON CONFLICT (id) DO NOTHING",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO waitlist (id, name, is_open, is_archived)
+                VALUES (42, 'wl', false, false), (43, 'wl2', false, false)
+                ON CONFLICT (id) DO NOTHING",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let config = Config {
+            database: DatabaseConfig {
+                url: url.to_string(),
+                min_connections: 1,
+                max_connections: 2,
+                idle_timeout: 60,
+                connect_timeout: 60,
+            },
+            app: AppConfig {
+                token_secret: "00".repeat(32),
+            },
+            esi: ESIConfig {
+                client_id: "x".to_string(),
+                client_secret: "y".to_string(),
+                url: "http://127.0.0.1".to_string(),
+            },
+            sse: SSEConfig {
+                url: "http://127.0.0.1".to_string(),
+                secret: "00".repeat(32),
+            },
+            fleet_updater: FleetUpdaterConfig {
+                enable: false,
+                min_in_fleet: 1,
+            },
+            skill_updater: SkillUpdaterConfig {
+                enable: false,
+                runtime: 1.0,
+            },
+        };
+        let db: Arc<crate::DB> = Arc::new(pool.clone());
+        let app = crate::app::new(db, config, srp::new_shared_state());
+        let state = rocket::State::from(&app);
+
+        let account = || AuthenticatedAccount {
+            id: 1,
+            access: crate::core::auth::get_access_keys("fc").unwrap(),
+        };
+        let input = |waitlist_id, corporation_id| {
+            Json(SetWaitlist {
+                waitlist_id,
+                character_id: None,
+                corporation_id,
+            })
+        };
+
+        // A corp with no connected wallet on a fresh waitlist is rejected
+        match set_waitlist(state, account(), input(42, Some(98000002))).await {
+            Err(Madness::BadRequest(m)) => {
+                assert!(m.contains("isn't connected"), "{}", m);
+            }
+            other => panic!("expected rejection, got {:?}", other),
+        }
+        // A bogus corp id is rejected too
+        assert!(matches!(
+            set_waitlist(state, account(), input(43, Some(1))).await,
+            Err(Madness::BadRequest(_))
+        ));
+
+        // Once any wallet of that corp is connected, the bare corp is accepted
+        sqlx::query(
+            "INSERT INTO srp_connection (character_id, corporation_id, corporation_name,
+                refresh_token, connected_by, connected_at)
+                VALUES (2, 98000002, 'CN', 't', 1, 0)
+                ON CONFLICT (character_id) DO UPDATE SET corporation_id = 98000002",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        set_waitlist(state, account(), input(42, Some(98000002)))
+            .await
+            .unwrap();
+        let row: (Option<i64>, Option<i64>) = sqlx::query_as(
+            "SELECT character_id, corporation_id FROM srp_waitlist WHERE waitlist_id = 42",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(row, (None, Some(98000002)));
+        assert_eq!(
+            srp::waitlists::corporation_of(&pool, 42).await.unwrap(),
+            Some(98000002)
+        );
+
+        // With a character given, a corp nobody watches is still rejected
+        let with_character = |waitlist_id, character_id, corporation_id| {
+            Json(SetWaitlist {
+                waitlist_id,
+                character_id: Some(character_id),
+                corporation_id: Some(corporation_id),
+            })
+        };
+        assert!(matches!(
+            set_waitlist(state, account(), with_character(42, 2, 7)).await,
+            Err(Madness::BadRequest(_))
+        ));
+        // Another connected wallet's corp is accepted, but the character's own corp still wins
+        sqlx::query(
+            "INSERT INTO srp_connection (character_id, corporation_id, corporation_name,
+                refresh_token, connected_by, connected_at)
+                VALUES (3, 98000003, 'OTHER', 't', 1, 0)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        set_waitlist(state, account(), with_character(42, 2, 98000003))
+            .await
+            .unwrap();
+        let character_id: Option<i64> =
+            sqlx::query_scalar("SELECT character_id FROM srp_waitlist WHERE waitlist_id = 42")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(character_id, Some(2));
+        assert_eq!(
+            srp::waitlists::corporation_of(&pool, 42).await.unwrap(),
+            Some(98000002)
+        );
+        // Back to the bare corp for the disconnect case
+        set_waitlist(state, account(), input(42, Some(98000002)))
+            .await
+            .unwrap();
+
+        // The current corp survives a disconnect (migration case) and can be re-saved
+        sqlx::query("DELETE FROM srp_connection")
+            .execute(&pool)
+            .await
+            .unwrap();
+        set_waitlist(state, account(), input(42, Some(98000002)))
+            .await
+            .unwrap();
+        // A different waitlist still rejects the now-disconnected corp
+        assert!(matches!(
+            set_waitlist(state, account(), input(43, Some(98000002))).await,
+            Err(Madness::BadRequest(_))
+        ));
+
+        // A character with no wallet and no kept corp has no corp, rather than a decode error
+        set_waitlist(
+            state,
+            account(),
+            Json(SetWaitlist {
+                waitlist_id: 42,
+                character_id: Some(2),
+                corporation_id: None,
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            srp::waitlists::corporation_of(&pool, 42).await.unwrap(),
+            None
+        );
+
+        for table in ["srp_waitlist", "waitlist", "character"] {
+            sqlx::query(&format!("DELETE FROM {}", table))
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+    }
+    // The routes must tell an assigned account (the source, hidden when its wallet is gone) from
+    // a corp-only migration row. Needs a second throwaway database on the same server, set up
+    // like refute1 in the test above, named refute2.
+    #[ignore = "needs a throwaway Postgres on 127.0.0.1:55432; see the comment"]
+    #[rocket::async_test]
+    async fn status_and_disconnect_with_shared_corp() {
+        use crate::config::{
+            AppConfig, Config, DatabaseConfig, ESIConfig, FleetUpdaterConfig, SSEConfig,
+            SkillUpdaterConfig,
+        };
+        use std::sync::Arc;
+
+        let url = "postgres://postgres:pass@127.0.0.1:55432/refute2";
+        let pool = sqlx::Pool::<sqlx::Postgres>::connect(url).await.unwrap();
+        // The fixture only needs these columns; a real schema has more
+        for column in [
+            "name varchar NOT NULL DEFAULT ''",
+            "is_open boolean NOT NULL DEFAULT false",
+            "is_archived boolean NOT NULL DEFAULT false",
+        ] {
+            sqlx::query(&format!(
+                "ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS {}",
+                column
+            ))
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+        sqlx::query("CREATE TABLE IF NOT EXISTS alt_character (account_id int8, alt_id int8)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        for table in ["srp_waitlist", "srp_connection", "waitlist", "character"] {
+            sqlx::query(&format!("DELETE FROM {}", table))
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        sqlx::query("INSERT INTO character (id, name) VALUES (1, 'a'), (2, 'b')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO waitlist (id, name, is_open, is_archived)
+                VALUES (10, 'dead account', false, false), (11, 'no wallet', false, false),
+                    (12, 'shared corp', false, false)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO srp_connection (character_id, corporation_id, corporation_name,
+                refresh_token, connected_by, connected_at)
+                VALUES (2, 101, 'Corp', 't', 1, 0)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        // 10: assigned account 1, wallet gone, corp kept. 12: corp only. 11: corp only, no wallet.
+        sqlx::query(
+            "INSERT INTO srp_waitlist (waitlist_id, character_id, corporation_id, set_by, set_at)
+                VALUES (10, 1, 101, 1, 1), (12, NULL, 101, 1, 1), (11, NULL, 999, 1, 1)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let config = Config {
+            database: DatabaseConfig {
+                url: url.to_string(),
+                min_connections: 1,
+                max_connections: 2,
+                idle_timeout: 60,
+                connect_timeout: 60,
+            },
+            app: AppConfig {
+                token_secret: "00".repeat(32),
+            },
+            esi: ESIConfig {
+                client_id: "x".to_string(),
+                client_secret: "y".to_string(),
+                url: "http://127.0.0.1".to_string(),
+            },
+            sse: SSEConfig {
+                url: "http://127.0.0.1".to_string(),
+                secret: "00".repeat(32),
+            },
+            fleet_updater: FleetUpdaterConfig {
+                enable: false,
+                min_in_fleet: 1,
+            },
+            skill_updater: SkillUpdaterConfig {
+                enable: false,
+                runtime: 1.0,
+            },
+        };
+        let db: Arc<crate::DB> = Arc::new(pool.clone());
+        let app = crate::app::new(db, config, srp::new_shared_state());
+        let state = rocket::State::from(&app);
+        let account = || AuthenticatedAccount {
+            id: 1,
+            access: crate::core::auth::get_access_keys("fc").unwrap(),
+        };
+
+        // The assigned account is the source: its disconnection hides the waitlist, even though
+        // another account of the same corp is connected
+        let answer = status(state, account(), "1", 10).await.unwrap().0;
+        assert!(!answer.applies && !answer.available);
+        let fleet = fleet_status(state, account(), "1", 10).await.unwrap().0;
+        assert!(!fleet.applies);
+
+        // A corp-only row is fed by any account of that corp
+        let answer = status(state, account(), "1", 12).await.unwrap().0;
+        assert!(answer.applies && !answer.available);
+        let fleet = fleet_status(state, account(), "1", 12).await.unwrap().0;
+        assert!(fleet.applies && !fleet.available);
+
+        // Admin resolves the corp-only row to the account that feeds it, and keeps the dead row
+        let admin = admin_status(state, account()).await.unwrap().0;
+        let row = |id: i64| admin.waitlists.iter().find(|w| w.id == id).unwrap();
+        assert_eq!(row(10).character.as_ref().map(|c| c.id), Some(1));
+        assert_eq!(row(12).character.as_ref().map(|c| c.id), Some(2));
+        assert!(row(11).character.is_none());
+
+        disconnect(state, account(), Json(Disconnect { character_id: 2 }))
+            .await
+            .unwrap();
+        let admin = admin_status(state, account()).await.unwrap().0;
+        assert!(admin
+            .waitlists
+            .iter()
+            .find(|w| w.id == 12)
+            .unwrap()
+            .character
+            .is_none());
+        assert!(matches!(
+            disconnect(state, account(), Json(Disconnect { character_id: 2 })).await,
+            Err(Madness::BadRequest(_))
+        ));
+
+        for table in ["srp_waitlist", "srp_connection", "waitlist", "character"] {
+            sqlx::query(&format!("DELETE FROM {}", table))
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
     }
 }
