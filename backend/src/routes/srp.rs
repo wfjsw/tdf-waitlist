@@ -16,8 +16,9 @@ use crate::{
     util::madness::Madness,
 };
 
-// Enough for any account's characters; stops the route being used for bulk lookups
-const MAX_CHARACTERS: usize = 50;
+// Enough for a large multiboxer's characters across linked accounts; stops the route being
+// used for bulk lookups
+const MAX_CHARACTERS: usize = 300;
 // Larger than any fleet the waitlist runs
 const MAX_FLEET_CHARACTERS: usize = 300;
 
@@ -666,6 +667,18 @@ mod tests {
     }
 
     // The fleet page tells "may have paid, can't show yet" from "not paid" by the data's age
+    #[test]
+    fn status_accepts_a_large_account() {
+        let ids: Vec<String> = (1..=MAX_CHARACTERS).map(|id| id.to_string()).collect();
+        assert_eq!(
+            parse_ids(&ids.join(","), MAX_CHARACTERS).unwrap().len(),
+            MAX_CHARACTERS
+        );
+
+        let ids: Vec<String> = (1..=MAX_CHARACTERS + 1).map(|id| id.to_string()).collect();
+        assert!(parse_ids(&ids.join(","), MAX_CHARACTERS).is_err());
+    }
+
     #[test]
     fn status_carries_when_the_wallet_data_was_produced() {
         let rule = Rule {
