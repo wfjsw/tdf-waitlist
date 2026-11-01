@@ -178,16 +178,38 @@ enum CallbackResponse {
     Redirect(Redirect),
 }
 
+#[derive(Deserialize)]
+struct CallbackData {
+    code: String,
+    state: Option<String>,
+}
+
 #[get("/api/auth/cb?<code>&<state>")]
 async fn callback(
     code: &str,
     state: Option<&str>,
-    // input: Json<CallbackData<'_>>,
-    // client_ip: RealIP, 
     app: &rocket::State<app::Application>,
     account_raw: Result<AuthenticatedAccount, AuthenticationError>,
 ) -> Result<CallbackResponse, Madness> {
+    handle_callback(code, state, app, account_raw).await
+}
 
+// The SPA posts {code, state}; SeAT also redirects the browser here with a query string
+#[post("/api/auth/cb", data = "<input>")]
+async fn callback_post(
+    input: Json<CallbackData>,
+    app: &rocket::State<app::Application>,
+    account_raw: Result<AuthenticatedAccount, AuthenticationError>,
+) -> Result<CallbackResponse, Madness> {
+    handle_callback(&input.code, input.state.as_deref(), app, account_raw).await
+}
+
+async fn handle_callback(
+    code: &str,
+    state: Option<&str>,
+    app: &rocket::State<app::Application>,
+    account_raw: Result<AuthenticatedAccount, AuthenticationError>,
+) -> Result<CallbackResponse, Madness> {
     let branca = Branca::new(&app.token_secret).unwrap();
 
     let state = match state {
@@ -231,5 +253,5 @@ async fn callback(
 }
 
 pub fn routes() -> Vec<rocket::Route> {
-    routes![whoami, logout, login_url, callback,]
+    routes![whoami, logout, login_url, callback, callback_post,]
 }
