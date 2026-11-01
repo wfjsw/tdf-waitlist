@@ -42,3 +42,6 @@ jsonwebtoken = {version = "8", default-features = false }
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
+
+[patch.crates-io]
+ntapi = { path = "vendor/ntapi" }
