@@ -13,10 +13,11 @@ const MAX_PAGES: i32 = 10;
 /// For each SeAT or ESI step of a check; see `within`
 const TIMEOUT: Duration = Duration::from_secs(120);
 
-/// Checks every connected SRP corp every INTERVAL, or straight away when asked
-/// (`Shared::check_now`, after a connect). A corp with several connected accounts is read through
-/// the first one that works. Checks run one at a time, in this one task: SeAT may rotate the
-/// refresh token on every use, so two at once would leave one holding a revoked token. For the
+/// Checks every wallet division a waitlist uses every INTERVAL, or straight away when asked
+/// (`Shared::check_now`, after a connect), reading through the first connected account of the corp
+/// that works. Each check is fed the loosest rule of the waitlists on its division; the status
+/// route applies each waitlist's own. Checks run one at a time, in this one task: SeAT may rotate
+/// the refresh token on every use, so two at once would leave one holding a revoked token. For the
 /// same reason only one backend process may run it.
 pub struct SrpUpdater {
     esi_client: ESIClient,
@@ -43,21 +44,29 @@ impl SrpUpdater {
 
     async fn run(self: Arc<Self>) {
         loop {
-            let corporation_ids = connection::corporation_ids(&self.db)
-                .await
-                .unwrap_or_else(|e| {
-                    database_error(e);
-                    Vec::new()
-                });
-            for corporation_id in corporation_ids {
+            let checks = srp::waitlists::checks(&self.db).await.unwrap_or_else(|e| {
+                database_error(e);
+                Vec::new()
+            });
+            for (corporation_id, division, rule) in checks
+                .into_iter()
+                .map(|c| (c.corporation_id, c.division, c.rule))
+            {
                 // In its own task, so a panic (the SeAT token parsing unwraps) costs one check,
                 // not the updater
                 let updater = self.clone();
                 if let Err(e) =
-                    tokio::spawn(async move { updater.check(corporation_id).await }).await
+                    tokio::spawn(async move { updater.check(corporation_id, division, rule).await })
+                        .await
                 {
-                    error!("SRP check of corp {} crashed: {}", corporation_id, e);
-                    self.state.write().corp_mut(corporation_id).last_error = Some(
+                    error!(
+                        "SRP check of corp {} division {} crashed: {}",
+                        corporation_id, division, e
+                    );
+                    self.state
+                        .write()
+                        .corp_mut(corporation_id, division)
+                        .last_error = Some(
                         "The SRP check crashed; the server log has the details. It tries again \
                         in a few minutes."
                             .to_string(),
@@ -68,8 +77,8 @@ impl SrpUpdater {
         }
     }
 
-    /// Reads one corp's wallet and records the result
-    async fn check(self: Arc<Self>, corporation_id: i64) {
+    /// Reads one corp's wallet division and records the result
+    async fn check(self: Arc<Self>, corporation_id: i64, division: i32, rule: srp::Rule) {
         // The generation before the wallet: a wallet replaced or removed after this read bumps
         // it, so the result is thrown away rather than published for a wallet that's gone
         let generation = self.state.read().generation(corporation_id);
@@ -91,9 +100,10 @@ impl SrpUpdater {
             // other accounts, nor leave a rotated token unrecorded for them
             let updater = self.clone();
             let character_id = wallet.character_id;
-            let outcome =
-                tokio::spawn(async move { fetch(&updater.esi_client, &updater.db, &wallet).await })
-                    .await;
+            let outcome = tokio::spawn(async move {
+                fetch(&updater.esi_client, &updater.db, &wallet, rule).await
+            })
+            .await;
             match outcome {
                 Ok(Ok(result)) => {
                     read = Some(result);
@@ -101,15 +111,15 @@ impl SrpUpdater {
                 }
                 Ok(Err(message)) => {
                     info!(
-                        "SRP check of corp {} through character {} failed: {}",
-                        corporation_id, character_id, message
+                        "SRP check of corp {} division {} through character {} failed: {}",
+                        corporation_id, division, character_id, message
                     );
                     last_error = Some(message);
                 }
                 Err(e) => {
                     error!(
-                        "SRP check of corp {} through character {} crashed: {}",
-                        corporation_id, character_id, e
+                        "SRP check of corp {} division {} through character {} crashed: {}",
+                        corporation_id, division, character_id, e
                     );
                     last_error = Some(
                         "The SRP check crashed; the server log has the details. It tries again \
@@ -128,18 +138,22 @@ impl SrpUpdater {
         let applied = self
             .state
             .write()
-            .corp_mut(corporation_id)
-            .apply(generation, result, now);
+            .apply(corporation_id, division, generation, result, now);
         match applied {
             Applied::Failed => warn!(
-                "SRP check of corp {} failed: {}",
+                "SRP check of corp {} division {} failed: {}",
                 corporation_id,
+                division,
                 message.unwrap_or_default()
             ),
-            Applied::Recovered => info!("SRP check of corp {} working again", corporation_id),
+            Applied::Recovered => info!(
+                "SRP check of corp {} division {} working again",
+                corporation_id, division
+            ),
             Applied::Discarded => info!(
-                "SRP check of corp {} discarded: its wallet was connected or disconnected meanwhile",
-                corporation_id
+                "SRP check of corp {} division {} discarded: its wallet was connected or \
+                disconnected meanwhile",
+                corporation_id, division
             ),
             Applied::Updated => {}
         }
@@ -202,6 +216,7 @@ async fn fetch(
     esi: &ESIClient,
     db: &crate::DB,
     conn: &connection::Connection,
+    rule: srp::Rule,
 ) -> Result<WalletRead, String> {
     // Not inside `within`: SeAT may rotate the refresh token in this response, and cancelling the
     // future after SeAT issued a new one drops it, revoking the only working token. A hung exchange
@@ -213,7 +228,7 @@ async fn fetch(
     if let Some(new_refresh_token) = new_refresh_token {
         store_refresh_token(db, conn, &new_refresh_token).await?;
     }
-    within(read_wallet(esi, conn, &seat_token)).await
+    within(read_wallet(esi, conn, &seat_token, rule)).await
 }
 
 /// Runs `step` with TIMEOUT: the HTTP client has none of its own, and a check that never finishes
@@ -252,21 +267,20 @@ async fn read_wallet(
     esi: &ESIClient,
     conn: &connection::Connection,
     seat_token: &str,
+    rule: srp::Rule,
 ) -> Result<WalletRead, String> {
     let token = esi
         .passthrough_token(seat_token, conn.character_id, srp::WALLET_SCOPES)
         .await
         .map_err(describe_token_error)?;
 
-    let rule = srp::RULE;
     let now = chrono::Utc::now().timestamp();
 
     let (journal, journal_as_of) = fetch_pages(
         esi,
         &format!(
             "/corporations/{}/wallets/{}/journal",
-            conn.corporation_id,
-            srp::DIVISION
+            conn.corporation_id, rule.division
         ),
         &token,
         "wallet journal",

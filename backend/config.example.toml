@@ -30,7 +30,8 @@ runtime = 86400
 # fc role. Fresh database: run sql/migration_postgres_0005.sql. If 0005 was applied before this
 # release, run sql/migration_postgres_0006.sql instead. Deploy the new backend with the migration:
 # an old process still reads the per-corp key and its connects fail meanwhile.
-# Counted: payments of 50,000,000 ISK or more, in wallet division 1, each covering the paying
-# character for 24 hours.
+# Each waitlist has its own rule, set on the SRP wallet page: wallet division (1-7), minimum amount
+# in ISK, and coverage in hours (1-720). New waitlists start at 50,000,000 ISK, division 1, 24
+# hours; run sql/migration_postgres_0007.sql with the deploy that adds the rule columns.
 # Run a single backend process: two would each poll and revoke each other's SeAT token.
 # Don't overlap backend restarts (e.g. rolling deploys): see "single process" above.
