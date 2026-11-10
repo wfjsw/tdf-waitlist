@@ -372,7 +372,7 @@ function RecentPayments({ check }) {
                   <Cell>{formatIsk(payment.amount)}</Cell>
                   <Cell>{datetime(payment.paid_at)}</Cell>
                   <Cell>{datetime(payment.expires_at)}</Cell>
-                  <Cell>{payment.via === "contract" ? "Ship loan contract" : "Donation"}</Cell>
+                  <Cell>{payment.via === "contract" ? "Handout contract" : "Donation"}</Cell>
                 </Row>
               ))}
             </TableBody>
