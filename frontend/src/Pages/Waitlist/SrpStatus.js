@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { AuthContext } from "../../contexts";
 import { apiCall } from "../../api";
 import { daysFromToday, formatClock, formatIsk } from "../../Util/srp";
@@ -176,6 +176,7 @@ const Popover = styled.div`
     transform: rotate(45deg);
   }
   p + p,
+  p + ul,
   h4 + ul,
   ul + p {
     margin-top: 0.4em;
@@ -186,9 +187,9 @@ const Popover = styled.div`
     font-weight: 700;
   }
   ul {
-    list-style: none;
+    list-style: disc;
     margin: 0;
-    padding: 0;
+    padding-left: 1.2em;
   }
   li {
     overflow-wrap: anywhere;
@@ -228,9 +229,9 @@ function coveredUntil(t, language, expiresAt) {
   return t("srp_date_time", { date: date.toLocaleDateString(language), time });
 }
 
-// One line per paid character. Unpaid characters are deliberately never named, in the tooltip or in
-// the popover. Each key has a `_contract` variant: the whole sentence, so translators can place the
-// ship loan contract where their language needs it.
+// One line per paid character, the same in the tooltip and the popover. Unpaid characters are
+// deliberately never named. Each key has a `_contract` variant: the whole line, so translators can
+// place the handout contract where their language needs it.
 function paidLine(t, language, key, name, entry) {
   const variant = entry.via === "contract" ? `${key}_contract` : key;
   return t(variant, { name, until: coveredUntil(t, language, entry.expires_at) });
@@ -310,9 +311,9 @@ export function SrpStatus({ waitlistId }) {
       : t("srp_summary_paid", { n: paidRows.length });
   const title = anyPaid
     ? paidRows
-        .map((c) => paidLine(t, i18n.language, "srp_paid_line", c.name, byId[c.id]))
+        .map((c) => paidLine(t, i18n.language, "srp_covered_line", c.name, byId[c.id]))
         .join("\n")
-    : t("srp_unpaid_hint", { count: status.coverage_hours });
+    : t("srp_unpaid_hint", { hours: status.coverage_hours });
 
   const amount = formatIsk(status.min_amount);
   const checked = status.checked_at && formatClock(new Date(status.checked_at * 1000));
@@ -367,13 +368,11 @@ export function SrpStatus({ waitlistId }) {
           <p>
             <b>{t("srp_pay_lead")}</b>
           </p>
-          <p>
-            <Trans t={t} i18nKey="srp_pay_1" values={{ amount }} components={{ b: <b /> }} />
-          </p>
-          <p>{t("srp_pay_2", { count: status.coverage_hours })}</p>
-          {status.division !== 1 && (
-            <p className="muted">{t("srp_division", { division: status.division })}</p>
-          )}
+          <ul>
+            <li>{t("srp_pay_how", { amount })}</li>
+            <li>{t("srp_pay_each", { amount })}</li>
+            <li>{t("srp_pay_cover", { hours: status.coverage_hours })}</li>
+          </ul>
           {anyPaid && (
             <>
               <h4>
